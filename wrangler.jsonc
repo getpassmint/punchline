@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tenthcup",
+  "compatibility_date": "2026-06-01",
+  // Required by the Passmint SDK's node:crypto webhook signature check.
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "./workers/app.ts",
+  "observability": {
+    "enabled": true
+  },
+  "upload_source_maps": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tenthcup",
+      // TODO: real id from `wrangler d1 create tenthcup` (local dev doesn't need it).
+      "database_id": "TODO",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    // The Passmint template to issue against — its design lives on the
+    // platform, this repo only references it by id. Override in .dev.vars.
+    // TODO: set to your template id (tmpl_...).
+    "PASSMINT_TEMPLATE_ID": "TODO"
+  }
+  // TODO: attach tenthcup.coffee via the Cloudflare dashboard after first
+  // deploy, and pin account_id here if you have more than one account.
+}

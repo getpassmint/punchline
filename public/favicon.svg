@@ -1,0 +1,7 @@
+<!-- Placeholder brand mark: a coffee ring on kraft stock.
+     TODO: replace with real Tenthcup brand assets. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Tenthcup</title>
+  <rect width="64" height="64" rx="14" fill="#e3d3b3" />
+  <ellipse cx="32" cy="33" rx="16" ry="15" fill="none" stroke="#3a2d21" stroke-width="6" transform="rotate(-9 32 33)" />
+</svg>

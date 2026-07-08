@@ -1,0 +1,51 @@
+@import "tailwindcss" source(".");
+
+/* Light-only: auto-dark modes would invert the QR code. */
+:root {
+  color-scheme: light;
+}
+
+@theme {
+  --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+
+  --color-paper-100: oklch(0.93 0.03 88);
+  --color-paper-200: oklch(0.885 0.045 84);
+  --color-paper-300: oklch(0.825 0.055 80);
+
+  --color-foam-50: oklch(0.975 0.012 95);
+
+  --color-espresso-500: oklch(0.5 0.05 52);
+  --color-espresso-600: oklch(0.42 0.05 50);
+  --color-espresso-800: oklch(0.28 0.045 45);
+  --color-espresso-900: oklch(0.22 0.04 40);
+
+  --color-stampred-50: oklch(0.94 0.035 27);
+  --color-stampred-500: oklch(0.55 0.19 27);
+  --color-stampred-600: oklch(0.47 0.18 27);
+}
+
+@keyframes stamp-pop {
+  0% {
+    transform: translate(var(--stamp-tx, 0), var(--stamp-ty, 0)) rotate(var(--stamp-rot, 0deg))
+      scale(2.1);
+    opacity: 0;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--stamp-tx, 0), var(--stamp-ty, 0)) rotate(var(--stamp-rot, 0deg))
+      scale(1);
+    opacity: 1;
+  }
+}
+
+.stamp-pop {
+  animation: stamp-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp-pop {
+    animation: none;
+  }
+}

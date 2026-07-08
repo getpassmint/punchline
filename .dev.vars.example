@@ -1,0 +1,16 @@
+# Copy to .dev.vars (gitignored). Production values are Wrangler secrets:
+#   wrangler secret put PASSMINT_API_KEY
+#   wrangler secret put PASSMINT_WEBHOOK_SECRET
+
+# TODO: your Passmint API key. A pmk_test_ key issues fully functional passes
+# (real APNs pushes, real webhooks) watermarked "[TEST]" on the pass face.
+PASSMINT_API_KEY=
+
+# TODO: the template this app issues against (tmpl_...). Overrides the
+# placeholder in wrangler.jsonc for local dev. See README for the field keys
+# the template needs.
+PASSMINT_TEMPLATE_ID=
+
+# Optional — only needed once you register the webhook receiver (README
+# "Lifecycle events"). Returned once by POST /v1/webhooks on create.
+# PASSMINT_WEBHOOK_SECRET=
