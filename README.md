@@ -33,7 +33,7 @@ A `pmk_test_` key issues fully functional passes — real signing, real APNs pus
 ### Deploy
 
 ```sh
-wrangler d1 create tenthcup      # then paste the id into wrangler.jsonc (TODO marker)
+wrangler d1 create tenthcup-coffee   # then paste the id into wrangler.jsonc
 pnpm db:migrate:remote
 wrangler secret put PASSMINT_API_KEY
 pnpm run deploy

@@ -1,8 +1,8 @@
 import type { Card } from '../lib/loyalty.server'
 
-// Official "Add to Apple/Google Wallet" badges linking to the direct pass
-// links when Passmint provides them, falling back to the hosted `url` (which
-// detects the platform itself). Wire's already in place for the direct links.
+// Official "Add to Apple/Google Wallet" badges. Each points at Passmint's
+// direct link for that platform, falling back to the hosted `url` page (which
+// detects the platform itself) when a platform wasn't delivered.
 export function WalletButtons({ card }: { card: Card }) {
   const appleHref = card.downloadUrl ?? card.url
   const googleHref = card.googleWalletUrl ?? card.url

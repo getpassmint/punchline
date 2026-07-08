@@ -21,13 +21,13 @@
     "typecheck": "wrangler types && react-router typegen && tsc -b",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "db:migrate": "wrangler d1 migrations apply tenthcup --local",
-    "db:migrate:remote": "wrangler d1 migrations apply tenthcup --remote",
+    "db:migrate": "wrangler d1 migrations apply tenthcup-coffee --local",
+    "db:migrate:remote": "wrangler d1 migrations apply tenthcup-coffee --remote",
     "cf-typegen": "wrangler types",
     "postinstall": "wrangler types"
   },
   "dependencies": {
-    "@passmint/node": "^0.2.2",
+    "@passmint/node": "^0.3.0",
     "isbot": "^5.2.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

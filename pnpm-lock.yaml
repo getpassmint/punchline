@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@passmint/node':
-        specifier: ^0.2.2
-        version: 0.2.2
+        specifier: ^0.3.0
+        version: 0.3.0
       isbot:
         specifier: ^5.2.0
         version: 5.2.0
@@ -635,8 +635,8 @@ packages:
   '@oxc-project/types@0.138.0':
     resolution: {integrity: sha512-1a7ZKmrRTCoN1XMZ4L0PyyqrMnrNlLyPuOkdSX2MZg7IiIGRUyurNhAm73ptDOraoBcIordsIGKNPKUzy3ZmfA==}
 
-  '@passmint/node@0.2.2':
-    resolution: {integrity: sha512-o8hHIjryXNEW0LJV/L+SaHC49Pzmxeg3Cc3yJoCZn9RDSFoVWPS1xtKFbHeBd/fgaLHRQ3yL985lXXGbXyW7Mw==}
+  '@passmint/node@0.3.0':
+    resolution: {integrity: sha512-OtvG3DkYuS4VMdT6ge3BugyXIoT5rRQXzU0YGWH4RvzM9rv6HvdLnUui8e/PLnLhwvRokwou6jv2V813clIKtg==}
     engines: {node: '>=20.0.0', pnpm: '>=9.0.0'}
 
   '@poppinss/colors@4.1.6':
@@ -2010,7 +2010,7 @@ snapshots:
 
   '@oxc-project/types@0.138.0': {}
 
-  '@passmint/node@0.2.2': {}
+  '@passmint/node@0.3.0': {}
 
   '@poppinss/colors@4.1.6':
     dependencies:

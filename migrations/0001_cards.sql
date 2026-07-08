@@ -6,8 +6,8 @@ CREATE TABLE cards (
   short_id TEXT NOT NULL, -- human-friendly id, shown at the counter
   serial_number TEXT NOT NULL, -- wallet serial; also the QR payload on the pass
   url TEXT NOT NULL, -- Passmint's hosted add-to-wallet page for this pass
-  -- Direct platform links, when Passmint returns them. Null until then; the
-  -- add-to-wallet buttons fall back to `url` (which detects the platform).
+  -- Direct platform links from Passmint. Null when a platform wasn't
+  -- delivered; the add-to-wallet buttons fall back to `url`.
   download_url TEXT, -- Apple .pkpass
   google_wallet_url TEXT, -- Google "save to wallet" link
   stamp_count INTEGER NOT NULL DEFAULT 0,
