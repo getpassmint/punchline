@@ -70,7 +70,7 @@ export default function Counter({ loaderData, actionData }: Route.ComponentProps
   const busyCardId = navigation.state !== 'idle' ? navigation.formData?.get('cardId') : undefined
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-6 py-14">
+    <main className="isolate mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-8 px-6 py-14">
       <header>
         <h1 className="font-display text-4xl font-bold lowercase tracking-tight">the counter</h1>
         <p className="mt-2 text-espresso-600">
@@ -80,13 +80,13 @@ export default function Counter({ loaderData, actionData }: Route.ComponentProps
       </header>
 
       {actionData?.error && (
-        <p className="mt-6 rounded-xl bg-stampred-50 px-4 py-3 text-sm text-stampred-600">
+        <p className="rounded-xl bg-stampred-50 px-4 py-3 text-sm text-stampred-600">
           {actionData.error}
         </p>
       )}
 
       {cards.length === 0 ? (
-        <p className="mt-10 rounded-3xl bg-foam-50 p-8 text-center text-espresso-600">
+        <p className="rounded-3xl bg-foam-50 p-8 text-center text-espresso-600">
           No cards yet. Scan the code on the{' '}
           <a href="/" className="underline underline-offset-4">
             landing page
@@ -94,7 +94,8 @@ export default function Counter({ loaderData, actionData }: Route.ComponentProps
           to issue the first one.
         </p>
       ) : (
-        <ul className="mt-8 flex flex-col gap-3">
+        // biome-ignore lint/a11y/noRedundantRoles: WebKit drops list semantics from a `display: flex` <ul>, so VoiceOver stops announcing the card count; the explicit role puts it back.
+        <ul role="list" className="flex flex-col gap-3">
           {cards.map((card) => {
             const busy = busyCardId === card.id
             const earned = card.state === 'reward'
@@ -103,7 +104,7 @@ export default function Counter({ loaderData, actionData }: Route.ComponentProps
               <li
                 key={card.id}
                 className={`flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl p-5 shadow-sm shadow-paper-300 ${
-                  earned ? 'bg-stampred-50' : 'bg-foam-50'
+                  earned ? 'bg-honey-100 ring-1 ring-honey-200' : 'bg-foam-50'
                 }`}
               >
                 <div className="min-w-0 flex-1">
@@ -115,9 +116,9 @@ export default function Counter({ loaderData, actionData }: Route.ComponentProps
                   </div>
                   <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
                     <StampRow count={card.stampCount} goal={goal} state={card.state} size="sm" />
-                    <span className="font-display text-sm font-bold">
+                    <p className="font-display text-sm font-bold tabular-nums">
                       {card.stampCount}/{goal}
-                    </span>
+                    </p>
                   </div>
                 </div>
                 <Form method="post">
@@ -141,7 +142,7 @@ export default function Counter({ loaderData, actionData }: Route.ComponentProps
         </ul>
       )}
 
-      <footer className="mt-auto pt-14 text-sm text-espresso-500">
+      <footer className="mt-auto pt-6 text-sm text-espresso-500">
         Cards reset to zero on redeem, so the loop never ends.
       </footer>
     </main>

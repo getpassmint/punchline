@@ -22,6 +22,12 @@
   --color-stampred-50: oklch(0.94 0.035 27);
   --color-stampred-500: oklch(0.55 0.19 27);
   --color-stampred-600: oklch(0.47 0.18 27);
+
+  /* Reward highlight at the counter. Sits in the paper hue family (75) rather
+     than the ink's red (27), so a redeemable row reads as "lit up" against the
+     cream rows without turning pink against the warm background. */
+  --color-honey-100: oklch(0.945 0.05 75);
+  --color-honey-200: oklch(0.9 0.06 74);
 }
 
 @keyframes stamp-pop {

@@ -70,19 +70,19 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
   const stamping = navigation.state === 'submitting'
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center px-6 py-14">
+    <main className="isolate mx-auto flex min-h-dvh w-full max-w-md flex-col items-center gap-8 px-6 py-14">
       <header className="flex flex-col items-center gap-3">
         <h1 className="font-display text-6xl font-bold lowercase tracking-tight">tenthcup</h1>
         <StampRow count={goal - 1} goal={goal} state="active" size="sm" decorative />
       </header>
       {card === null ? (
         <>
-          <p className="mt-10 text-balance text-center text-lg text-espresso-600">
+          <p className="text-balance text-center text-lg text-espresso-600">
             Scan for your stamp card — ninth coffee's on you, tenth's on us.
           </p>
-          <div className="mt-8 w-full rounded-3xl bg-foam-50 p-8 shadow-lg shadow-paper-300">
+          <div className="w-full rounded-3xl bg-foam-50 p-8 shadow-lg shadow-paper-300">
             <div
-              className="mx-auto aspect-square w-full max-w-64 [&_svg]:h-full [&_svg]:w-full"
+              className="mx-auto aspect-square w-full max-w-64 [&_svg]:size-full"
               // biome-ignore lint/security/noDangerouslySetInnerHtml: SVG generated server-side by uqr
               dangerouslySetInnerHTML={{ __html: qrSvg }}
             />
@@ -90,13 +90,13 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
               Point your phone's camera at the code
             </p>
           </div>
-          <Link to="/scan" className="mt-6 text-stampred-500 underline underline-offset-4">
+          <Link to="/scan" className="text-stampred-500 underline underline-offset-4">
             Already on your phone? Get your card
           </Link>
         </>
       ) : (
         <>
-          <section className="mt-10 w-full rounded-3xl bg-foam-50 p-8 shadow-lg shadow-paper-300">
+          <section className="w-full rounded-3xl bg-foam-50 p-8 shadow-lg shadow-paper-300">
             <div className="flex items-baseline justify-between">
               <h2 className="text-sm uppercase tracking-widest text-espresso-500">Your card</h2>
               <span className="font-mono text-xs text-espresso-500">{card.shortId}</span>
@@ -109,11 +109,13 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
                 justStamped={actionData !== undefined && 'stampedTo' in actionData}
               />
             </div>
-            <p className="mt-5 text-center font-display text-4xl font-bold">
+            <p className="mt-5 text-center font-display text-4xl font-bold tabular-nums">
               {card.stampCount} / {goal}
             </p>
             {card.state === 'reward' ? (
-              <p className="mx-auto mt-6 w-fit -rotate-3 border-[5px] border-double border-stampred-500 px-4 py-1.5 text-center font-display font-bold uppercase tracking-[0.2em] text-stampred-500">
+              // text-balance keeps the two-line wrap even on a 360px phone, where
+              // this sits close to the card's inner padding once rotated.
+              <p className="mx-auto mt-6 w-fit -rotate-3 text-balance border-[5px] border-double border-stampred-500 px-4 py-1.5 text-center font-display font-bold uppercase tracking-[0.2em] text-stampred-500">
                 Free coffee earned
               </p>
             ) : (
@@ -124,36 +126,43 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
           </section>
 
           {actionData !== undefined && 'error' in actionData && (
-            <p className="mt-4 w-full rounded-xl bg-stampred-50 px-4 py-3 text-center text-sm text-stampred-600">
+            <p className="w-full rounded-xl bg-stampred-50 px-4 py-3 text-center text-sm text-stampred-600">
               {actionData.error}
             </p>
           )}
 
-          <WalletButtons card={card} />
+          <div className="flex flex-col items-center gap-3">
+            {/* w-fit + items-stretch: the wallet badges set the width and the
+                stamp button matches them, so the three actions share one edge
+                instead of a full-bleed red bar under two narrow badges. */}
+            <div className="flex w-fit flex-col items-stretch gap-3">
+              <WalletButtons card={card} />
 
-          {card.state !== 'reward' && (
-            <Form method="post" className="mt-3 w-full">
-              <button
-                type="submit"
-                disabled={stamping}
-                className="w-full rounded-2xl bg-stampred-500 px-5 py-3.5 font-medium text-foam-50 hover:bg-stampred-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-espresso-900 disabled:opacity-60"
-              >
-                {stamping ? 'Stamping…' : 'Simulate a visit'}
-              </button>
-            </Form>
-          )}
-          <p className="mt-3 max-w-xs text-center text-xs text-espresso-500">
-            {card.state === 'reward'
-              ? 'Show this at the counter — redeeming resets the card for another round.'
-              : 'Stamps this card and pushes the update straight to the pass on your phone — no barista needed.'}
-          </p>
+              {card.state !== 'reward' && (
+                <Form method="post">
+                  <button
+                    type="submit"
+                    disabled={stamping}
+                    className="w-full rounded-2xl bg-stampred-500 px-4 py-3 font-medium text-foam-50 hover:bg-stampred-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-espresso-900 disabled:opacity-60"
+                  >
+                    {stamping ? 'Stamping…' : 'Simulate a visit'}
+                  </button>
+                </Form>
+              )}
+            </div>
+            <p className="max-w-xs text-center text-xs text-espresso-500">
+              {card.state === 'reward'
+                ? 'Show this at the counter — redeeming resets the card for another round.'
+                : 'Stamps this card and pushes the update straight to the pass on your phone — no barista needed.'}
+            </p>
+          </div>
 
-          <Link to="/scan" className="mt-8 text-sm text-espresso-500 underline underline-offset-4">
+          <Link to="/scan" className="text-sm text-espresso-500 underline underline-offset-4">
             Start a fresh card
           </Link>
         </>
       )}
-      <footer className="mt-auto flex flex-wrap items-center justify-center gap-x-2 gap-y-1 pt-14 text-center text-sm text-espresso-500">
+      <footer className="mt-auto flex flex-wrap items-center justify-center gap-x-2 gap-y-1 pt-6 text-center text-sm text-espresso-500">
         <AboutDialog />
         <span aria-hidden>·</span>
         {/* TODO: confirm the public repo URL before launch. */}
