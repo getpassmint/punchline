@@ -166,7 +166,9 @@ export default function Counter({ loaderData, actionData }: Route.ComponentProps
                       <span className="font-semibold tabular-nums">
                         {card.stampCount} / {STAMP_GOAL}
                       </span>
-                      <span className="text-sm text-ink-400 tabular-nums">{card.shortId}</span>
+                      {card.shortId && (
+                        <span className="text-sm text-ink-400 tabular-nums">{card.shortId}</span>
+                      )}
                       {yours && (
                         <span className="rounded-full bg-cobalt-50 px-2 py-0.5 text-xs font-semibold text-cobalt-600">
                           Your card
@@ -183,21 +185,27 @@ export default function Counter({ loaderData, actionData }: Route.ComponentProps
                       </div>
                     )}
                   </div>
-                  <Form method="post">
-                    <input type="hidden" name="cardId" value={card.id} />
-                    <input type="hidden" name="intent" value={earned ? 'redeem' : 'stamp'} />
-                    <button
-                      type="submit"
-                      disabled={busy}
-                      className={`min-w-24 rounded-full px-5 py-2.5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60 ${
-                        earned
-                          ? 'bg-butter-400 text-ink-900 hover:bg-butter-600 focus-visible:outline-cobalt-500'
-                          : 'bg-cobalt-500 text-white hover:bg-cobalt-600 focus-visible:outline-butter-400'
-                      }`}
-                    >
-                      {busy ? 'Sending…' : earned ? 'Redeem' : 'Punch'}
-                    </button>
-                  </Form>
+                  {card.issueState === 'ready' ? (
+                    <Form method="post">
+                      <input type="hidden" name="cardId" value={card.id} />
+                      <input type="hidden" name="intent" value={earned ? 'redeem' : 'stamp'} />
+                      <button
+                        type="submit"
+                        disabled={busy}
+                        className={`min-w-24 rounded-full px-5 py-2.5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60 ${
+                          earned
+                            ? 'bg-butter-400 text-ink-900 hover:bg-butter-600 focus-visible:outline-cobalt-500'
+                            : 'bg-cobalt-500 text-white hover:bg-cobalt-600 focus-visible:outline-butter-400'
+                        }`}
+                      >
+                        {busy ? 'Sending…' : earned ? 'Redeem' : 'Punch'}
+                      </button>
+                    </Form>
+                  ) : (
+                    <span className="text-sm font-medium text-ink-400">
+                      {card.issueState === 'issuing' ? 'Issuing…' : "Couldn't issue"}
+                    </span>
+                  )}
                 </li>
               )
             })}

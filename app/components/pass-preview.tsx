@@ -13,6 +13,7 @@ export function PassPreview({
   serial,
   newest = false,
   placeholder = false,
+  issuing = false,
 }: {
   count: number
   state: CardState
@@ -20,6 +21,8 @@ export function PassPreview({
   newest?: boolean
   /** Before a card exists: show the shape, dimmed. */
   placeholder?: boolean
+  /** The card exists but Passmint is still issuing its pass. */
+  issuing?: boolean
 }) {
   const nextReward =
     state === 'reward'
@@ -38,25 +41,45 @@ export function PassPreview({
         </div>
         <div className="text-right leading-tight">
           <div className="text-[10px] font-semibold text-butter-400">Punches</div>
-          <div className="text-lg font-medium tabular-nums">
-            {count} / {STAMP_GOAL}
-          </div>
+          {issuing ? (
+            <span aria-hidden="true" className="skeleton-light mt-1 ml-auto h-5 w-14 rounded" />
+          ) : (
+            <div className="text-lg font-medium tabular-nums">
+              {count} / {STAMP_GOAL}
+            </div>
+          )}
         </div>
       </div>
 
-      <PassStrip count={count} state={state} newest={newest} className="block h-auto w-full" />
+      <div className="relative">
+        <PassStrip count={count} state={state} newest={newest} className="block h-auto w-full" />
+        {issuing && <span aria-hidden="true" className="skeleton-light absolute inset-0" />}
+      </div>
 
       <div className="px-4 pt-3 pb-4">
         <div className="text-[10px] font-semibold text-butter-400">Next reward</div>
-        <div className="text-[15px] leading-snug">{nextReward}</div>
+        {issuing ? (
+          <span aria-hidden="true" className="skeleton-light mt-1.5 h-4 w-48 rounded" />
+        ) : (
+          <div className="text-[15px] leading-snug">{nextReward}</div>
+        )}
       </div>
 
       <div className="flex justify-center px-4 pb-5">
         <div className="rounded-md bg-white px-3 pt-2.5 pb-1.5">
-          <Barcode seed={serial} />
-          <div className="mt-1 text-center text-[9px] tracking-wider text-ink-600 tabular-nums">
-            {serial}
-          </div>
+          {issuing ? (
+            <>
+              <span aria-hidden="true" className="skeleton h-9 w-44 rounded" />
+              <span aria-hidden="true" className="skeleton mx-auto mt-1.5 h-2 w-20 rounded" />
+            </>
+          ) : (
+            <>
+              <Barcode seed={serial} />
+              <div className="mt-1 text-center text-[9px] tracking-wider text-ink-600 tabular-nums">
+                {serial}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

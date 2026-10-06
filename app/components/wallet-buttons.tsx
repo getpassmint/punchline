@@ -7,8 +7,8 @@ import type { Card } from '../lib/loyalty.server'
 // only gets the Apple badge and an Android phone only the Google one; anything
 // else sees both.
 export function WalletButtons({ card, device }: { card: Card; device: Device }) {
-  const appleHref = card.downloadUrl ?? card.url
-  const googleHref = card.googleWalletUrl ?? card.url
+  const appleHref = card.downloadUrl ?? card.url ?? undefined
+  const googleHref = card.googleWalletUrl ?? card.url ?? undefined
 
   // A fragment, not a wrapper: the badges sit in the caller's action row as
   // siblings of the punch button.

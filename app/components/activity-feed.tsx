@@ -32,7 +32,9 @@ export function ActivityFeed({ items, freshIds }: { items: FeedItem[]; freshIds:
   return (
     <ol className="flex flex-col">
       {items.map((item) => {
-        const { title, call } = describe(item, latency.get(item.id))
+        const described = describe(item, latency.get(item.id))
+        const title = item.pending && item.kind === 'issued' ? 'Issuing your pass' : described.title
+        const { call } = described
 
         return (
           <li

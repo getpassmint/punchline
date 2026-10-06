@@ -12,9 +12,11 @@ import { useLiveData } from '../hooks/use-live-data'
 import { BRAND } from '../lib/brand'
 import { detectDevice } from '../lib/device'
 import {
+  completeIssue,
   getSessionCard,
   listActivity,
   redeemCard,
+  restartIssue,
   skipToReward,
   stampCard,
 } from '../lib/loyalty.server'
@@ -60,14 +62,19 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       // Before a card: /scan issues one. After: /join opens the same card on
       // the phone (e.g. after "Start a new card" on the laptop).
       qrSvg: card ? null : qr(scanPath),
-      joinQrSvg: card && device === 'desktop' ? qr(`/join?s=${sessionId}`) : null,
+      joinQrSvg:
+        card?.issueState === 'ready' && device === 'desktop' ? qr(`/join?s=${sessionId}`) : null,
+      // Issuing normally takes a second or two. Past 45s the background work
+      // has died, so offer a retry instead of a skeleton forever.
+      issueStuck:
+        card?.issueState === 'issuing' && Date.now() - Date.parse(card.createdAt) > 45_000,
     },
     { headers },
   )
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
-  const { env } = context.get(cloudflareContext)
+  const { env, ctx } = context.get(cloudflareContext)
   const sessionId = await readSession(request)
   const card = sessionId ? await getSessionCard(env, sessionId) : null
 
@@ -76,6 +83,18 @@ export async function action({ request, context }: Route.ActionArgs) {
   }
 
   const intent = (await request.formData()).get('intent')
+
+  if (intent === 'retry') {
+    if (await restartIssue(env, card.id)) {
+      ctx.waitUntil(completeIssue(env, card.id))
+    }
+
+    return { ok: true as const }
+  }
+
+  if (card.issueState !== 'ready') {
+    return { error: 'Your pass is still being issued. Give it a moment.' }
+  }
 
   try {
     // The same transitions the counter runs, so a solo visitor can punch and
@@ -101,7 +120,10 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Landing({ loaderData, actionData }: Route.ComponentProps) {
-  const { card, activity, device, qrSvg, joinQrSvg, scanPath, walletTracking } = loaderData
+  const { card, activity, device, qrSvg, joinQrSvg, scanPath, walletTracking, issueStuck } =
+    loaderData
+  const issuing = card?.issueState === 'issuing' && !issueStuck
+  const issueFailed = card?.issueState === 'failed' || issueStuck
   const navigation = useNavigation()
   // A punch, skip or redeem in flight (through the action and the reload
   // after it). The page renders its outcome immediately; see optimistic.ts.
@@ -111,13 +133,26 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
       : null
   const pending = pendingIntent != null
   const shown = card && pending ? applyIntent(card, pendingIntent) : card
-  const pendingRow = card && shown ? pendingActivity(card, shown, 'visitor') : null
+  const pendingRow = issuing
+    ? ({
+        id: -2,
+        kind: 'issued',
+        stampCount: 0,
+        actor: 'visitor',
+        at: '',
+        pending: true,
+      } as FeedItem)
+    : card && shown
+      ? pendingActivity(card, shown, 'visitor')
+      : null
   const feed: FeedItem[] = pendingRow ? [pendingRow, ...activity] : activity
   const onPhone = device !== 'desktop'
 
   // Before pairing, poll fast so the laptop flips to the card the moment the
   // phone scans; after, a little slower to pick up punches from elsewhere.
-  useLiveData(card ? 3000 : 2000)
+  // While the pass is issuing, poll every second so it appears the moment
+  // Passmint answers.
+  useLiveData(issuing ? 1000 : card ? 3000 : 2000)
 
   // Animate punches and feed rows however they arrive — this tab, the
   // counter, or the paired phone — by diffing against the previous render.
@@ -161,6 +196,7 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
       serial={card?.shortId ?? '000000000000'}
       newest={newPunch}
       placeholder={!card}
+      issuing={issuing}
     />
   )
 
@@ -175,9 +211,11 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
             <PhoneFrame>
               {pass}
               <p className="mt-5 text-center text-sm text-ink-400">
-                {card
-                  ? 'The pass in your wallet, as it looks right now'
-                  : 'Your card will appear here'}
+                {issuing
+                  ? 'Passmint is issuing your pass…'
+                  : card
+                    ? 'The pass in your wallet, as it looks right now'
+                    : 'Your card will appear here'}
               </p>
             </PhoneFrame>
           )}
@@ -231,6 +269,43 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
                 </div>
               </div>
             )
+          ) : issuing ? (
+            <div className="flex flex-col gap-4" aria-busy="true">
+              <p role="status" className="flex items-center gap-2 font-medium text-cobalt-600">
+                <span
+                  aria-hidden
+                  className="size-2 rounded-full bg-cobalt-500 motion-safe:animate-pulse"
+                />
+                Passmint is issuing your pass…
+              </p>
+              <div className="flex flex-wrap gap-3" aria-hidden="true">
+                <span className="skeleton h-[60px] w-44 rounded-full" />
+                <span className="skeleton h-[60px] w-48 rounded-full" />
+              </div>
+              <p className="max-w-md text-sm text-ink-600">
+                It usually takes a second or two. You can add it to your wallet as soon as it
+                appears.
+              </p>
+            </div>
+          ) : issueFailed ? (
+            <div className="flex flex-col gap-4">
+              <div role="alert" className="rounded-2xl bg-cherry-50 px-5 py-4 text-cherry-600">
+                <p className="font-semibold">Passmint couldn't issue your pass</p>
+                <p className="mt-1 text-sm">
+                  {card.issueError ?? 'Issuing took too long. Try again.'}
+                </p>
+              </div>
+              <Form method="post">
+                <input type="hidden" name="intent" value="retry" />
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className="rounded-full bg-cobalt-500 px-7 py-4 text-lg font-semibold text-white hover:bg-cobalt-600 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-butter-400 disabled:opacity-60"
+                >
+                  Try again
+                </button>
+              </Form>
+            </div>
           ) : (
             <div className="flex flex-col gap-4">
               {walletTracking && <WalletStatus card={card} />}

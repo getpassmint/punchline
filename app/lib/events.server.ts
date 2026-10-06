@@ -11,6 +11,7 @@ type AppEvent =
   | 'pass.retired'
   | 'pass.retire_failed'
   | 'pass.strip_variant_missing'
+  | 'pass.issue_failed'
 
 export function logEvent(
   source: 'punchline' | 'passmint',

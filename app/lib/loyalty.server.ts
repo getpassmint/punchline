@@ -1,15 +1,29 @@
 import { logEvent } from './events.server'
-import { issuePass, type PassmintEvent, pushLoyaltyState, voidPass } from './passmint.server'
+import {
+  describePassmintError,
+  issuePass,
+  type PassmintEvent,
+  pushLoyaltyState,
+  voidPass,
+} from './passmint.server'
 import { type CardState, REWARD_AT } from './rules'
 
-// A stamp card is one D1 row plus one wallet pass, joined by the Passmint
-// pass id. Each transition pushes the new state to the wallet, then persists
-// and logs it.
+// A stamp card is one D1 row plus one wallet pass. The row comes first:
+// /scan creates it and redirects straight away, and the pass is issued in
+// the background (completeIssue). Once issued, each transition pushes the
+// new state to the wallet, then persists and logs it.
+export type IssueState = 'issuing' | 'ready' | 'failed'
+
 export interface Card {
   id: string
-  shortId: string
+  /** The Passmint pass, once issued. */
+  passId: string | null
+  issueState: IssueState
+  /** Why issuing failed, shown beside a retry button. */
+  issueError: string | null
+  shortId: string | null
   sessionId: string | null
-  url: string
+  url: string | null
   downloadUrl: string | null
   googleWalletUrl: string | null
   stampCount: number
@@ -27,9 +41,12 @@ export interface Card {
 
 interface CardRow {
   id: string
-  short_id: string
+  pass_id: string | null
+  issue_state: IssueState
+  issue_error: string | null
+  short_id: string | null
   session_id: string | null
-  url: string
+  url: string | null
   download_url: string | null
   google_wallet_url: string | null
   stamp_count: number
@@ -66,6 +83,10 @@ export interface Activity {
 function toCard(row: CardRow): Card {
   return {
     id: row.id,
+    // Cards issued before background issuing used the pass id as their id.
+    passId: row.pass_id ?? (row.id.startsWith('pass_') ? row.id : null),
+    issueState: row.issue_state ?? 'ready',
+    issueError: row.issue_error,
     shortId: row.short_id,
     sessionId: row.session_id,
     url: row.url,
@@ -82,66 +103,124 @@ function toCard(row: CardRow): Card {
   }
 }
 
-// Issues a new card for a session. Passmint first: if issuance fails, no
-// orphan row lands in D1. Returns the session's previous cards so the caller
-// can retire them (see retireCards) without holding up the redirect.
-export async function issueCard(
-  env: Env,
-  sessionId: string,
-): Promise<{ card: Card; replaced: string[] }> {
-  const pass = await issuePass(env)
+// Creates the card straight away, before its pass exists, so /scan can
+// redirect without waiting on Passmint. The caller runs completeIssue in the
+// background (waitUntil) and the page shows a skeleton until it lands.
+export async function startCard(env: Env, sessionId: string): Promise<Card> {
   const now = new Date().toISOString()
-
-  const { results: previous } = await env.DB.prepare('SELECT id FROM cards WHERE session_id = ?1')
-    .bind(sessionId)
-    .all<{ id: string }>()
-
   const row = await env.DB.prepare(
-    `INSERT INTO cards (id, short_id, serial_number, session_id, url, download_url, google_wallet_url, stamp_count, state, created_at, updated_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, 'active', ?8, ?8)
+    `INSERT INTO cards (id, session_id, issue_state, stamp_count, state, created_at, updated_at)
+     VALUES (?1, ?2, 'issuing', 0, 'active', ?3, ?3)
      RETURNING *`,
   )
-    .bind(
-      pass.id,
-      pass.short_id,
-      pass.serial_number,
-      sessionId,
-      pass.url,
-      pass.download_url,
-      pass.google_wallet_url,
-      now,
-    )
+    .bind(`card_${crypto.randomUUID()}`, sessionId, now)
     .first<CardRow>()
 
-  logEvent('punchline', 'pass.issued', {
-    passId: pass.id,
-    shortId: pass.short_id,
-    mode: pass.mode,
-    warnings: pass.warnings,
-  })
-
   if (!row) {
-    throw new Error(`Inserted card ${pass.id} but D1 returned no row`)
+    throw new Error('Inserted a card but D1 returned no row')
   }
 
-  await recordActivity(env, pass.id, 'issued', { stampCount: 0, actor: 'visitor', at: now })
-
-  return { card: toCard(row), replaced: previous.map((p) => p.id) }
+  return toCard(row)
 }
 
-// Voids each pass in Passmint, then drops its row. A failed void keeps the
-// row, so the daily expiry sweep retries it.
+// Issues the card's pass and fills in its links. On success the session's
+// older cards are retired (voided, so they stop counting against the plan).
+// On failure the card is marked failed with a readable reason; the page
+// offers a retry. Never throws: it runs after the response has gone.
+export async function completeIssue(env: Env, cardId: string): Promise<void> {
+  try {
+    const pass = await issuePass(env)
+    const now = new Date().toISOString()
+    const row = await env.DB.prepare(
+      `UPDATE cards
+       SET pass_id = ?2, short_id = ?3, serial_number = ?4, url = ?5, download_url = ?6,
+           google_wallet_url = ?7, issue_state = 'ready', issue_error = NULL, updated_at = ?8
+       WHERE id = ?1
+       RETURNING session_id`,
+    )
+      .bind(
+        cardId,
+        pass.id,
+        pass.short_id,
+        pass.serial_number,
+        pass.url,
+        pass.download_url,
+        pass.google_wallet_url,
+        now,
+      )
+      .first<{ session_id: string | null }>()
+
+    logEvent('punchline', 'pass.issued', {
+      cardId,
+      passId: pass.id,
+      shortId: pass.short_id,
+      mode: pass.mode,
+      warnings: pass.warnings,
+    })
+
+    if (!row) {
+      // The card was retired while its pass was issuing; don't leak the pass.
+      await voidPass(env, pass.id)
+      return
+    }
+
+    await recordActivity(env, cardId, 'issued', { stampCount: 0, actor: 'visitor', at: now })
+
+    if (row.session_id) {
+      const { results: older } = await env.DB.prepare(
+        'SELECT id FROM cards WHERE session_id = ?1 AND id != ?2',
+      )
+        .bind(row.session_id, cardId)
+        .all<{ id: string }>()
+
+      await retireCards(
+        env,
+        older.map((c) => c.id),
+        'replaced',
+      )
+    }
+  } catch (err) {
+    const message = describePassmintError(err) ?? 'Passmint could not be reached. Try again.'
+
+    logEvent('punchline', 'pass.issue_failed', { cardId, error: String(err) })
+    await env.DB.prepare(
+      "UPDATE cards SET issue_state = 'failed', issue_error = ?2 WHERE id = ?1 AND issue_state = 'issuing'",
+    )
+      .bind(cardId, message)
+      .run()
+  }
+}
+
+// Puts a failed (or stuck) card back into issuing. Returns false if the card
+// is already issued. The caller re-runs completeIssue in the background.
+export async function restartIssue(env: Env, cardId: string): Promise<boolean> {
+  const result = await env.DB.prepare(
+    "UPDATE cards SET issue_state = 'issuing', issue_error = NULL, created_at = ?2 WHERE id = ?1 AND issue_state != 'ready'",
+  )
+    .bind(cardId, new Date().toISOString())
+    .run()
+
+  return result.meta.changes > 0
+}
+
+// Voids each card's pass in Passmint (if it has one), then drops the row. A
+// failed void keeps the row, so the daily expiry sweep retries it.
 export async function retireCards(env: Env, ids: string[], reason: string): Promise<void> {
   for (const id of ids) {
     try {
-      await voidPass(env, id)
+      const passId = (await getCard(env, id))?.passId
+
+      if (passId) {
+        await voidPass(env, passId)
+      }
+
       await env.DB.batch([
         env.DB.prepare('DELETE FROM card_activity WHERE card_id = ?1').bind(id),
         env.DB.prepare('DELETE FROM cards WHERE id = ?1').bind(id),
       ])
-      logEvent('punchline', 'pass.retired', { passId: id, reason })
+      logEvent('punchline', 'pass.retired', { cardId: id, passId, reason })
     } catch (err) {
-      logEvent('punchline', 'pass.retire_failed', { passId: id, reason, error: String(err) })
+      logEvent('punchline', 'pass.retire_failed', { cardId: id, reason, error: String(err) })
     }
   }
 }
@@ -208,6 +287,15 @@ export async function getCard(env: Env, id: string): Promise<Card | null> {
   return row ? toCard(row) : null
 }
 
+// Webhooks name the pass, not the card.
+async function getCardByPassId(env: Env, passId: string): Promise<Card | null> {
+  const row = await env.DB.prepare('SELECT * FROM cards WHERE pass_id = ?1 OR id = ?1')
+    .bind(passId)
+    .first<CardRow>()
+
+  return row ? toCard(row) : null
+}
+
 // A session's current card: the newest one it issued.
 export async function getSessionCard(env: Env, sessionId: string): Promise<Card | null> {
   const row = await env.DB.prepare(
@@ -247,7 +335,11 @@ export async function getCardByShortId(env: Env, shortId: string): Promise<Card 
 // pass on the phone in agreement.
 async function pushOrRollback(env: Env, card: Card, previous: Pick<Card, 'stampCount' | 'state'>) {
   try {
-    await pushLoyaltyState(env, card.id, card.stampCount, card.state)
+    if (!card.passId) {
+      throw new Error(`Card ${card.id} has no pass yet`)
+    }
+
+    await pushLoyaltyState(env, card.passId, card.stampCount, card.state)
   } catch (err) {
     await env.DB.prepare(
       // pushed_at is cleared rather than restored: nothing new went out, so
@@ -273,7 +365,7 @@ export async function stampCard(env: Env, id: string, actor: Actor): Promise<Car
          state = CASE WHEN stamp_count + 1 >= ?2 THEN 'reward' ELSE 'active' END,
          updated_at = ?3,
          pushed_at = ?3
-     WHERE id = ?1 AND state = 'active' AND stamp_count < ?2
+     WHERE id = ?1 AND state = 'active' AND stamp_count < ?2 AND issue_state = 'ready'
      RETURNING *`,
   )
     .bind(id, REWARD_AT, now)
@@ -288,7 +380,7 @@ export async function stampCard(env: Env, id: string, actor: Actor): Promise<Car
   await pushOrRollback(env, card, { stampCount: card.stampCount - 1, state: 'active' })
 
   logEvent('punchline', card.state === 'reward' ? 'pass.reward_earned' : 'pass.stamped', {
-    passId: card.id,
+    passId: card.passId,
     shortId: card.shortId,
     stampCount: card.stampCount,
   })
@@ -311,7 +403,7 @@ export async function skipToReward(env: Env, id: string, actor: Actor): Promise<
   const row = await env.DB.prepare(
     `UPDATE cards
      SET stamp_count = ?2, state = 'reward', updated_at = ?3, pushed_at = ?3
-     WHERE id = ?1 AND state = 'active'
+     WHERE id = ?1 AND state = 'active' AND issue_state = 'ready'
      RETURNING *`,
   )
     .bind(id, REWARD_AT, now)
@@ -326,7 +418,7 @@ export async function skipToReward(env: Env, id: string, actor: Actor): Promise<
   await pushOrRollback(env, card, { stampCount: before.stampCount, state: 'active' })
 
   logEvent('punchline', 'pass.reward_earned', {
-    passId: card.id,
+    passId: card.passId,
     shortId: card.shortId,
     stampCount: card.stampCount,
     skipped: true,
@@ -343,7 +435,7 @@ export async function redeemCard(env: Env, id: string, actor: Actor): Promise<Ca
   const row = await env.DB.prepare(
     `UPDATE cards
      SET stamp_count = 0, state = 'active', updated_at = ?2, pushed_at = ?2
-     WHERE id = ?1 AND state = 'reward'
+     WHERE id = ?1 AND state = 'reward' AND issue_state = 'ready'
      RETURNING *`,
   )
     .bind(id, now)
@@ -358,7 +450,7 @@ export async function redeemCard(env: Env, id: string, actor: Actor): Promise<Ca
   await pushOrRollback(env, card, { stampCount: REWARD_AT, state: 'reward' })
 
   logEvent('punchline', 'pass.redeemed', {
-    passId: card.id,
+    passId: card.passId,
     shortId: card.shortId,
     stampCount: card.stampCount,
   })
@@ -383,8 +475,14 @@ export async function recordWalletEvent(env: Env, event: PassmintEvent): Promise
   const at = event.created_at
   const kind = WALLET_ACTIVITY[event.type]
 
-  if (kind && (await getCard(env, passId))) {
-    await recordActivity(env, passId, kind, { actor: event.source.platform, at })
+  const card = await getCardByPassId(env, passId)
+
+  if (!card) {
+    return
+  }
+
+  if (kind) {
+    await recordActivity(env, card.id, kind, { actor: event.source.platform, at })
   }
 
   switch (event.type) {
@@ -393,14 +491,14 @@ export async function recordWalletEvent(env: Env, event: PassmintEvent): Promise
         `UPDATE cards SET added_at = ?2, wallet_platform = COALESCE(?3, wallet_platform)
          WHERE id = ?1 AND (added_at IS NULL OR added_at < ?2)`,
       )
-        .bind(passId, at, event.source.platform)
+        .bind(card.id, at, event.source.platform)
         .run()
       return
     case 'pass.removed':
       await env.DB.prepare(
         'UPDATE cards SET added_at = NULL WHERE id = ?1 AND (added_at IS NULL OR added_at < ?2)',
       )
-        .bind(passId, at)
+        .bind(card.id, at)
         .run()
       return
     case 'pass.update_delivered':
@@ -408,7 +506,7 @@ export async function recordWalletEvent(env: Env, event: PassmintEvent): Promise
         `UPDATE cards SET delivered_at = ?2, wallet_platform = COALESCE(wallet_platform, ?3)
          WHERE id = ?1 AND (delivered_at IS NULL OR delivered_at < ?2)`,
       )
-        .bind(passId, at, event.source.platform)
+        .bind(card.id, at, event.source.platform)
         .run()
       return
   }

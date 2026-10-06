@@ -1,14 +1,14 @@
 import { isbot } from 'isbot'
 import { data, redirect } from 'react-router'
 import { cloudflareContext } from '../context'
-import { issueCard, retireCards } from '../lib/loyalty.server'
-import { describePassmintError, setupProblem } from '../lib/passmint.server'
+import { completeIssue, startCard } from '../lib/loyalty.server'
+import { setupProblem } from '../lib/passmint.server'
 import { isSessionId, readSession, serializeSession } from '../lib/session.server'
 import type { Route } from './+types/scan'
 
-// The URL behind the landing-page QR. Each scan issues a fresh pass with its
-// own serial — no signup — and sends the phone home, where the page renders
-// as "your card". It has no page of its own, so links to it need
+// The URL behind the landing-page QR. Each scan creates a card — no signup —
+// and sends the phone home straight away, where the page shows the pass
+// appearing as Passmint issues it. It has no page of its own, so links to it need
 // `reloadDocument`: a client-side navigation never reaches the server.
 //
 // `?s=` carries the laptop's session id, so the phone joins it: the laptop
@@ -40,21 +40,12 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     ? fromQr
     : ((await readSession(request)) ?? crypto.randomUUID())
 
-  try {
-    const { replaced } = await issueCard(env, sessionId)
+  // The card exists from here on; its pass is issued after the redirect has
+  // gone (waitUntil keeps the Worker alive for it). The page shows a skeleton
+  // until it lands, or Passmint's error with a retry button if it fails.
+  const card = await startCard(env, sessionId)
 
-    // The session's old pass is voided in the background so the redirect
-    // isn't held up; voiding also stops it counting against the plan.
-    ctx.waitUntil(retireCards(env, replaced, 'replaced'))
-  } catch (err) {
-    const message = describePassmintError(err)
-
-    if (message) {
-      throw data(message, { status: 502 })
-    }
-
-    throw err
-  }
+  ctx.waitUntil(completeIssue(env, card.id))
 
   throw redirect('/', {
     headers: { 'Set-Cookie': await serializeSession(sessionId) },
