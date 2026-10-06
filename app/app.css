@@ -1,57 +1,79 @@
 @import "tailwindcss" source(".");
 
-/* Light-only: auto-dark modes would invert the QR code. */
+/* Light-only: auto-dark modes can make the QR unscannable. */
 :root {
   color-scheme: light;
 }
 
 @theme {
-  --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  /* One family, used across its width axis: expanded for the wordmark and
+     headlines, normal for everything else. */
+  --font-sans: "Archivo", "Helvetica Neue", system-ui, sans-serif;
 
-  --color-paper-100: oklch(0.93 0.03 88);
-  --color-paper-200: oklch(0.885 0.045 84);
-  --color-paper-300: oklch(0.825 0.055 80);
-
-  --color-foam-50: oklch(0.975 0.012 95);
-
-  --color-espresso-500: oklch(0.5 0.05 52);
-  --color-espresso-600: oklch(0.42 0.05 50);
-  --color-espresso-800: oklch(0.28 0.045 45);
-  --color-espresso-900: oklch(0.22 0.04 40);
-
-  --color-stampred-50: oklch(0.94 0.035 27);
-  --color-stampred-500: oklch(0.55 0.19 27);
-  --color-stampred-600: oklch(0.47 0.18 27);
-
-  /* Reward highlight at the counter. Sits in the paper hue family (75) rather
-     than the ink's red (27), so a redeemable row reads as "lit up" against the
-     cream rows without turning pink against the warm background. */
-  --color-honey-100: oklch(0.945 0.05 75);
-  --color-honey-200: oklch(0.9 0.06 74);
+  /* Mirrors app/lib/brand.ts — the pass template uses the same values. */
+  --color-cobalt-50: #eef1fd;
+  --color-cobalt-100: #dce3fb;
+  --color-cobalt-500: #2340d8;
+  --color-cobalt-600: #1a31a8;
+  --color-butter-200: #fcecb0;
+  --color-butter-400: #f7d046;
+  --color-butter-600: #d8ae1f;
+  --color-ink-400: #5d6789;
+  --color-ink-600: #36406a;
+  --color-ink-900: #0e1a4d;
+  --color-milk: #eef0f5;
+  --color-cherry-50: #fdeced;
+  --color-cherry-600: #d93a3f;
+  --color-leaf-600: #1f8a5b;
 }
 
-@keyframes stamp-pop {
+/* Wide, heavy Archivo for the wordmark and headlines. */
+.type-wide {
+  font-stretch: 125%;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* A punch landing: the hole drops in a touch oversized and settles. */
+@keyframes punch-in {
   0% {
-    transform: translate(var(--stamp-tx, 0), var(--stamp-ty, 0)) rotate(var(--stamp-rot, 0deg))
-      scale(2.1);
+    transform: scale(1.6);
     opacity: 0;
   }
   60% {
     opacity: 1;
   }
   100% {
-    transform: translate(var(--stamp-tx, 0), var(--stamp-ty, 0)) rotate(var(--stamp-rot, 0deg))
-      scale(1);
+    transform: scale(1);
     opacity: 1;
   }
 }
 
-.stamp-pop {
-  animation: stamp-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+.punch-in {
+  animation: punch-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* New rows in the activity feed slide down into place. */
+@keyframes feed-in {
+  from {
+    transform: translateY(-6px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.feed-in {
+  animation: feed-in 0.3s ease-out both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stamp-pop {
+  .punch-in,
+  .feed-in {
     animation: none;
   }
 }

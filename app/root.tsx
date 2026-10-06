@@ -1,5 +1,6 @@
 import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from 'react-router'
 import type { Route } from './+types/root'
+import { DemoBanner } from './components/demo-banner'
 import './app.css'
 
 export const links: Route.LinksFunction = () => [
@@ -12,7 +13,7 @@ export const links: Route.LinksFunction = () => [
   },
   {
     rel: 'stylesheet',
-    href: 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&display=swap',
+    href: 'https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap',
   },
 ]
 
@@ -27,7 +28,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links />
       </head>
-      <body className="min-h-dvh bg-paper-200 text-espresso-900 antialiased">
+      <body className="min-h-dvh bg-milk font-sans text-ink-900 antialiased">
         {children}
         <ScrollRestoration />
         <Scripts />
@@ -37,7 +38,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />
+  return (
+    <>
+      <DemoBanner />
+      <Outlet />
+    </>
+  )
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
@@ -54,11 +60,14 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-3 px-6 text-center">
-      <h1 className="font-display text-5xl font-bold">{message}</h1>
-      <p className="text-espresso-600">{details}</p>
-      <a href="/" className="text-stampred-500 underline underline-offset-4">
-        Back to the café
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 px-6">
+      <h1 className="type-wide text-5xl">{message}</h1>
+      <p className="text-lg text-ink-600">{details}</p>
+      <a
+        href="/"
+        className="w-fit font-semibold text-cobalt-500 underline decoration-2 underline-offset-4"
+      >
+        Back to Punchline
       </a>
     </main>
   )

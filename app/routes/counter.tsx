@@ -1,20 +1,48 @@
 import { Form, useNavigation } from 'react-router'
-import { StampRow } from '../components/stamp-row'
+import { PassStrip } from '../components/pass-strip'
+import { SiteHeader } from '../components/site-header'
+import { WalletStatus } from '../components/wallet-status'
 import { cloudflareContext } from '../context'
-import { listRecentCards, redeemCard, stampCard } from '../lib/loyalty.server'
-import { PassmintAPIError, STAMP_GOAL } from '../lib/passmint.server'
+import { useLiveData } from '../hooks/use-live-data'
+import { timeAgo } from '../lib/format'
+import {
+  type Card,
+  getCardByShortId,
+  listSessionCards,
+  redeemCard,
+  stampCard,
+} from '../lib/loyalty.server'
+import { applyIntent } from '../lib/optimistic'
+import { describePassmintError } from '../lib/passmint.server'
+import { STAMP_GOAL } from '../lib/rules'
+import { readSession } from '../lib/session.server'
 import type { Route } from './+types/counter'
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: 'The counter — Tenthcup' }]
+  return [{ title: 'The counter · Punchline' }]
 }
 
-// TODO: optionally gate this page behind a single shared demo PIN. Left
-// open for now — anyone with the URL can stamp cards, fine for a demo.
-export async function loader({ context }: Route.LoaderArgs) {
+// The till. It shows the cards on this browser, plus any card looked up by
+// the code under its barcode, the way a real till scans a pass. It never
+// lists other visitors' cards: this is a public demo.
+export async function loader({ request, context }: Route.LoaderArgs) {
   const { env } = context.get(cloudflareContext)
+  const sessionId = await readSession(request)
+  const code = new URL(request.url).searchParams.get('code')?.trim() ?? ''
+  const cards: Card[] = sessionId ? await listSessionCards(env, sessionId) : []
+  const lookedUp = code ? await getCardByShortId(env, code) : null
 
-  return { cards: await listRecentCards(env), goal: STAMP_GOAL }
+  if (lookedUp && !cards.some((c) => c.id === lookedUp.id)) {
+    cards.unshift(lookedUp)
+  }
+
+  return {
+    cards,
+    code,
+    notFound: code !== '' && lookedUp === null,
+    sessionId,
+    walletTracking: Boolean(env.PASSMINT_WEBHOOK_SECRET),
+  }
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
@@ -27,9 +55,9 @@ export async function action({ request, context }: Route.ActionArgs) {
     // Both transitions push the update to the customer's phone via Passmint.
     const card =
       intent === 'stamp'
-        ? await stampCard(env, cardId)
+        ? await stampCard(env, cardId, 'counter')
         : intent === 'redeem'
-          ? await redeemCard(env, cardId)
+          ? await redeemCard(env, cardId, 'counter')
           : undefined
 
     if (card === null) {
@@ -38,113 +66,148 @@ export async function action({ request, context }: Route.ActionArgs) {
 
     return null
   } catch (err) {
-    if (err instanceof PassmintAPIError) {
-      return { error: `Passmint rejected the update: ${err.message}` }
+    const message = describePassmintError(err)
+
+    if (message) {
+      return { error: message }
     }
 
     throw err
   }
 }
 
-function timeAgo(iso: string): string {
-  const seconds = Math.max(0, (Date.now() - Date.parse(iso)) / 1000)
-
-  if (seconds < 60) {
-    return 'just now'
-  }
-
-  if (seconds < 3600) {
-    return `${Math.floor(seconds / 60)}m ago`
-  }
-
-  if (seconds < 86400) {
-    return `${Math.floor(seconds / 3600)}h ago`
-  }
-
-  return `${Math.floor(seconds / 86400)}d ago`
-}
-
 export default function Counter({ loaderData, actionData }: Route.ComponentProps) {
-  const { cards, goal } = loaderData
+  const { cards, code, notFound, sessionId, walletTracking } = loaderData
   const navigation = useNavigation()
-  const busyCardId = navigation.state !== 'idle' ? navigation.formData?.get('cardId') : undefined
+
+  // New scans and punches from customers' own phones appear without a reload.
+  useLiveData(3000)
+  // The row being punched or redeemed shows its outcome straight away.
+  const pending = navigation.state !== 'idle' && navigation.formMethod === 'POST'
+  const busyCardId = pending ? navigation.formData?.get('cardId') : undefined
+  const busyIntent = pending ? navigation.formData?.get('intent') : undefined
 
   return (
-    <main className="isolate mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-8 px-6 py-14">
-      <header>
-        <h1 className="font-display text-4xl font-bold lowercase tracking-tight">the counter</h1>
-        <p className="mt-2 text-espresso-600">
-          Barista view — stamp a card as the coffee is poured, and the pass updates on the
-          customer's phone.
-        </p>
-      </header>
+    <div className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-5 sm:px-8">
+      <SiteHeader />
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 py-8 lg:py-12">
+        <div>
+          <h1 className="type-wide text-4xl sm:text-5xl">The counter</h1>
+          <p className="mt-3 max-w-lg text-lg text-ink-600">
+            This is what the barista sees. A real till scans the code on the pass. Here you get the
+            card on this browser, or you can look one up by the code under its barcode. Punch it and
+            the pass updates on the customer's phone.
+          </p>
+        </div>
 
-      {actionData?.error && (
-        <p className="rounded-xl bg-stampred-50 px-4 py-3 text-sm text-stampred-600">
-          {actionData.error}
-        </p>
-      )}
+        <Form method="get" className="flex flex-wrap items-end gap-3">
+          <label className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <span className="text-sm font-medium">Card code</span>
+            <input
+              name="code"
+              defaultValue={code}
+              placeholder="e.g. tEDWE4TTIhdE"
+              autoComplete="off"
+              spellCheck={false}
+              className="rounded-xl border border-ink-900/15 bg-white px-4 py-2.5 tabular-nums outline-none focus:border-cobalt-500 focus:ring-2 focus:ring-cobalt-500/20"
+            />
+          </label>
+          <button
+            type="submit"
+            className="rounded-full border border-ink-900/15 bg-white px-5 py-2.5 font-semibold hover:border-ink-900/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
+          >
+            Look up
+          </button>
+        </Form>
 
-      {cards.length === 0 ? (
-        <p className="rounded-3xl bg-foam-50 p-8 text-center text-espresso-600">
-          No cards yet. Scan the code on the{' '}
-          <a href="/" className="underline underline-offset-4">
-            landing page
-          </a>{' '}
-          to issue the first one.
-        </p>
-      ) : (
-        // biome-ignore lint/a11y/noRedundantRoles: WebKit drops list semantics from a `display: flex` <ul>, so VoiceOver stops announcing the card count; the explicit role puts it back.
-        <ul role="list" className="flex flex-col gap-3">
-          {cards.map((card) => {
-            const busy = busyCardId === card.id
-            const earned = card.state === 'reward'
+        {notFound && (
+          <p role="status" className="text-sm text-ink-600">
+            No card has the code "{code}". Check the characters under the barcode on the pass.
+          </p>
+        )}
 
-            return (
-              <li
-                key={card.id}
-                className={`flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl p-5 shadow-sm shadow-paper-300 ${
-                  earned ? 'bg-honey-100 ring-1 ring-honey-200' : 'bg-foam-50'
-                }`}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-3">
-                    <span className="font-mono text-sm">{card.shortId}</span>
-                    <span className="text-xs text-espresso-500" suppressHydrationWarning>
+        {actionData?.error && (
+          <p role="alert" className="rounded-xl bg-cherry-50 px-4 py-3 text-sm text-cherry-600">
+            {actionData.error}
+          </p>
+        )}
+
+        {cards.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-ink-400/40 p-8 text-ink-600">
+            This browser has no card yet. Get one on the{' '}
+            <a href="/" className="font-semibold text-cobalt-500 underline underline-offset-4">
+              home page
+            </a>
+            , or look one up by its code above.
+          </p>
+        ) : (
+          // biome-ignore lint/a11y/noRedundantRoles: WebKit drops list semantics from a `display: flex` <ul>, so VoiceOver stops announcing the card count; the explicit role puts it back.
+          <ul role="list" className="flex flex-col gap-3">
+            {cards.map((saved) => {
+              const busy = busyCardId === saved.id
+              const card = busy ? applyIntent(saved, busyIntent) : saved
+              const earned = card.state === 'reward'
+              const yours = sessionId !== null && card.sessionId === sessionId
+
+              return (
+                <li
+                  key={card.id}
+                  className={`flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl bg-white p-3 pr-4 shadow-[0_1px_2px_rgb(14_26_77/0.06)] ${
+                    earned ? 'ring-2 ring-butter-400' : ''
+                  }`}
+                >
+                  <PassStrip
+                    count={card.stampCount}
+                    state={card.state}
+                    className="h-auto w-36 shrink-0 rounded-lg"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                      <span className="font-semibold tabular-nums">
+                        {card.stampCount} / {STAMP_GOAL}
+                      </span>
+                      <span className="text-sm text-ink-400 tabular-nums">{card.shortId}</span>
+                      {yours && (
+                        <span className="rounded-full bg-cobalt-50 px-2 py-0.5 text-xs font-semibold text-cobalt-600">
+                          Your card
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1 text-sm text-ink-400" suppressHydrationWarning>
+                      {earned ? 'Free coffee to redeem · ' : ''}
                       {timeAgo(card.updatedAt)}
-                    </span>
+                    </div>
+                    {walletTracking && (
+                      <div className="mt-1.5">
+                        <WalletStatus card={card} size="sm" />
+                      </div>
+                    )}
                   </div>
-                  <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                    <StampRow count={card.stampCount} goal={goal} state={card.state} size="sm" />
-                    <p className="font-display text-sm font-bold tabular-nums">
-                      {card.stampCount}/{goal}
-                    </p>
-                  </div>
-                </div>
-                <Form method="post">
-                  <input type="hidden" name="cardId" value={card.id} />
-                  <input type="hidden" name="intent" value={earned ? 'redeem' : 'stamp'} />
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className={`min-w-24 rounded-xl px-5 py-2.5 font-medium text-foam-50 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60 ${
-                      earned
-                        ? 'bg-stampred-500 hover:bg-stampred-600 focus-visible:outline-espresso-900'
-                        : 'bg-espresso-900 hover:bg-espresso-800 focus-visible:outline-stampred-500'
-                    }`}
-                  >
-                    {busy ? '…' : earned ? 'Redeem' : 'Stamp'}
-                  </button>
-                </Form>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+                  <Form method="post">
+                    <input type="hidden" name="cardId" value={card.id} />
+                    <input type="hidden" name="intent" value={earned ? 'redeem' : 'stamp'} />
+                    <button
+                      type="submit"
+                      disabled={busy}
+                      className={`min-w-24 rounded-full px-5 py-2.5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60 ${
+                        earned
+                          ? 'bg-butter-400 text-ink-900 hover:bg-butter-600 focus-visible:outline-cobalt-500'
+                          : 'bg-cobalt-500 text-white hover:bg-cobalt-600 focus-visible:outline-butter-400'
+                      }`}
+                    >
+                      {busy ? 'Sending…' : earned ? 'Redeem' : 'Punch'}
+                    </button>
+                  </Form>
+                </li>
+              )
+            })}
+          </ul>
+        )}
 
-      <footer className="mt-auto pt-6 text-sm text-espresso-500">
-        Cards reset to zero on redeem, so the loop never ends.
-      </footer>
-    </main>
+        <p className="text-sm text-ink-400">
+          Redeeming resets a card to zero, so every card can go round again.
+        </p>
+      </main>
+    </div>
   )
 }

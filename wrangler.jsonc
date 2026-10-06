@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tenthcup-coffee",
+  "name": "passmint-punchline-demo",
   "workers_dev": true,
   "preview_urls": false,
   "compatibility_date": "2026-07-08",
@@ -14,12 +14,30 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "tenthcup-coffee",
+      // The database_id is what connects the Worker to its data; the name is a
+      // label (the original database keeps its old name in Cloudflare).
+      "database_name": "passmint-punchline-demo",
       "database_id": "a7c7dda3-d5aa-4278-91df-624d9ba0f6a1",
       "migrations_dir": "migrations"
     }
   ],
+  // /scan mints a real pass per request; cap it per IP. namespace_id is any
+  // integer unique within your Cloudflare account.
+  "ratelimits": [
+    {
+      "name": "SCAN_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 6, "period": 60 }
+    }
+  ],
+  // Daily sweep that voids cards left idle (workers/app.ts `scheduled`).
+  "triggers": {
+    "crons": ["17 4 * * *"]
+  },
   "vars": {
+    // Each punch swaps the pass's strip image to match (art uploaded by
+    // `pnpm setup:pass`). Safe before setup: missing variants fall back.
+    "PASSMINT_STRIP_VARIANTS": "on",
     "PASSMINT_TEMPLATE_ID": "tmpl_kfterihycqvs6fvylkcgly5r"
   }
 }

@@ -11,6 +11,7 @@ PASSMINT_API_KEY=
 # the template needs.
 PASSMINT_TEMPLATE_ID=
 
-# Optional — only needed once you register the webhook receiver (README
-# "Lifecycle events"). Returned once by POST /v1/webhooks on create.
+# Optional — set once you register the webhook receiver (README "Lifecycle
+# events"); it turns on the "in your wallet / delivered" receipt. Returned
+# once by POST /v1/webhooks on create.
 # PASSMINT_WEBHOOK_SECRET=

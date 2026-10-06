@@ -1,5 +1,9 @@
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import { cloudflareContext } from '../app/context'
+import { expireIdleCards } from '../app/lib/loyalty.server'
+
+/** Cards untouched for this long are voided by the daily cron. */
+const CARD_TTL_DAYS = 7
 
 const requestHandler = createRequestHandler(
   () => import('virtual:react-router/server-build'),
@@ -19,5 +23,9 @@ export default {
     context.set(cloudflareContext, { env, ctx })
 
     return requestHandler(request, context)
+  },
+
+  async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(expireIdleCards(env, CARD_TTL_DAYS))
   },
 } satisfies ExportedHandler<Env>

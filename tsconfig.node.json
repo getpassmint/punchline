@@ -1,6 +1,15 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["vite.config.ts"],
+  // scripts/ renders the strip art with the app's own components, so those
+  // files are type-checked here too.
+  "include": [
+    "vite.config.ts",
+    "scripts/**/*",
+    "app/components/pass-strip.tsx",
+    "app/components/pass-preview.tsx",
+    "app/lib/brand.ts",
+    "app/lib/rules.ts"
+  ],
   "compilerOptions": {
     "composite": true,
     "strict": true,
@@ -8,6 +17,7 @@
     "lib": ["ES2022"],
     "target": "ES2022",
     "module": "ES2022",
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx"
   }
 }

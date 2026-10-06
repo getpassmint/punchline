@@ -56,7 +56,7 @@
   },
   "overrides": [
     {
-      "includes": ["app/lib/events.server.ts", "app/entry.server.tsx"],
+      "includes": ["app/lib/events.server.ts", "app/entry.server.tsx", "scripts/**"],
       "linter": { "rules": { "suspicious": { "noConsole": "off" } } }
     }
   ]
