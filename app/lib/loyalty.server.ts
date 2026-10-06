@@ -1,6 +1,7 @@
 import { logEvent } from './events.server'
 import {
   describePassmintError,
+  isIssueInProgress,
   issuePass,
   type PassmintEvent,
   pushLoyaltyState,
@@ -123,19 +124,29 @@ export async function startCard(env: Env, sessionId: string): Promise<Card> {
   return toCard(row)
 }
 
-// Issues the card's pass and fills in its links. On success the session's
-// older cards are retired (voided, so they stop counting against the plan).
-// On failure the card is marked failed with a readable reason; the page
-// offers a retry. Never throws: it runs after the response has gone.
+// Issues the card's pass and fills in its links. Runs in the background from
+// /scan, and again from the page if the card is still issuing a few seconds
+// later (the background run can be cut off). Every run for one attempt uses
+// the same idempotency key, so Passmint returns the same pass; "Try again"
+// starts a new attempt (restartIssue resets created_at), so it gets a fresh
+// key rather than a replay of the failure. On success the session's older
+// cards are retired; on failure the card is marked failed with a readable
+// reason. Never throws.
 export async function completeIssue(env: Env, cardId: string): Promise<void> {
+  const card = await getCard(env, cardId)
+
+  if (card?.issueState !== 'issuing') {
+    return
+  }
+
   try {
-    const pass = await issuePass(env)
+    const pass = await issuePass(env, `punchline-issue:${card.id}:${card.createdAt}`)
     const now = new Date().toISOString()
     const row = await env.DB.prepare(
       `UPDATE cards
        SET pass_id = ?2, short_id = ?3, serial_number = ?4, url = ?5, download_url = ?6,
            google_wallet_url = ?7, issue_state = 'ready', issue_error = NULL, updated_at = ?8
-       WHERE id = ?1
+       WHERE id = ?1 AND issue_state != 'ready'
        RETURNING session_id`,
     )
       .bind(
@@ -159,8 +170,15 @@ export async function completeIssue(env: Env, cardId: string): Promise<void> {
     })
 
     if (!row) {
-      // The card was retired while its pass was issuing; don't leak the pass.
-      await voidPass(env, pass.id)
+      // Either another run of this attempt already filled the card in (same
+      // pass, thanks to the idempotency key), or the card was retired while
+      // issuing. Only the second leaves an orphan pass to void.
+      const current = await getCard(env, cardId)
+
+      if (current?.passId !== pass.id) {
+        await voidPass(env, pass.id)
+      }
+
       return
     }
 
@@ -180,6 +198,11 @@ export async function completeIssue(env: Env, cardId: string): Promise<void> {
       )
     }
   } catch (err) {
+    if (isIssueInProgress(err)) {
+      // Another run of this same attempt is still talking to Passmint.
+      return
+    }
+
     const message = describePassmintError(err) ?? 'Passmint could not be reached. Try again.'
 
     logEvent('punchline', 'pass.issue_failed', { cardId, error: String(err) })

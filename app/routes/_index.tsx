@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { data, Form, Link, useNavigation } from 'react-router'
+import { data, Form, Link, useFetcher, useNavigation } from 'react-router'
 import { renderSVG } from 'uqr'
 import { ActivityFeed } from '../components/activity-feed'
 import { GitHubMark } from '../components/github-mark'
@@ -84,6 +84,18 @@ export async function action({ request, context }: Route.ActionArgs) {
 
   const intent = (await request.formData()).get('intent')
 
+  // The page's nudge: the card is still issuing a few seconds in, so the
+  // background run may have been cut off. Finish it in this request, which
+  // has no 30s cap. completeIssue is idempotent, so a run still in flight
+  // can't produce a second pass.
+  if (intent === 'nudge') {
+    if (card.issueState === 'issuing') {
+      await completeIssue(env, card.id)
+    }
+
+    return { ok: true as const }
+  }
+
   if (intent === 'retry') {
     if (await restartIssue(env, card.id)) {
       ctx.waitUntil(completeIssue(env, card.id))
@@ -153,6 +165,24 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
   // While the pass is issuing, poll every second so it appears the moment
   // Passmint answers.
   useLiveData(issuing ? 1000 : card ? 3000 : 2000)
+
+  // Normally the pass lands within a few seconds of /scan. If it hasn't
+  // after 8s, ask the server to finish issuing it (see the action's nudge).
+  const nudge = useFetcher()
+  const submitNudge = nudge.submit
+
+  useEffect(() => {
+    if (!issuing) {
+      return
+    }
+
+    const timer = window.setTimeout(
+      () => submitNudge({ intent: 'nudge' }, { method: 'post', action: '/?index' }),
+      8000,
+    )
+
+    return () => window.clearTimeout(timer)
+  }, [issuing, submitNudge])
 
   // Animate punches and feed rows however they arrive — this tab, the
   // counter, or the paired phone — by diffing against the previous render.

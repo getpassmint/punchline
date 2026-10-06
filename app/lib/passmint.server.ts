@@ -18,8 +18,11 @@ export { PassmintError } from '@passmint/node'
 import { logEvent } from './events.server'
 import { type CardState, REWARD_AT, STAMP_GOAL } from './rules'
 
+// Issuing runs in the background after the response (waitUntil), which
+// Cloudflare stops after about 30s. Keep one attempt plus a retry inside
+// that, so a slow call ends as a recorded failure rather than a silent kill.
 function client(env: Env): Passmint {
-  return new Passmint({ apiKey: env.PASSMINT_API_KEY })
+  return new Passmint({ apiKey: env.PASSMINT_API_KEY, timeoutMs: 12_000, maxRetries: 1 })
 }
 
 // Maps card state onto the template's field keys (matching Passmint's
@@ -47,6 +50,15 @@ export function setupProblem(env: Env): string | null {
   }
 
   return null
+}
+
+// Another attempt at the same issue is still running at Passmint.
+export function isIssueInProgress(err: unknown): boolean {
+  return (
+    err instanceof PassmintAPIError &&
+    err.type === 'idempotency_error' &&
+    /still being processed/i.test(err.message)
+  )
 }
 
 // A sentence a visitor can read, for errors worth showing in the UI. Anything
@@ -101,14 +113,22 @@ async function withStripFallback<T>(
 // One call issues a pass. The returned `url` is Passmint's hosted
 // add-to-wallet page — it handles Apple/Google detection and delivery, so
 // this app needs no wallet callback routes of its own.
-export async function issuePass(env: Env): Promise<Pass & { warnings: string[] }> {
+export async function issuePass(
+  env: Env,
+  idempotencyKey: string,
+): Promise<Pass & { warnings: string[] }> {
   return withStripFallback(stripVariant(env, 0), (imageVariant) =>
-    client(env).passes.create({
-      templateId: env.PASSMINT_TEMPLATE_ID,
-      fieldValues: loyaltyFieldValues(0, 'active'),
-      imageVariant,
-      metadata: { app: 'punchline' },
-    }),
+    client(env).passes.create(
+      {
+        templateId: env.PASSMINT_TEMPLATE_ID,
+        fieldValues: loyaltyFieldValues(0, 'active'),
+        imageVariant,
+        metadata: { app: 'punchline' },
+      },
+      // The same key for every attempt at one issue (the background run and
+      // the page's nudge), so Passmint returns one pass, never two.
+      { idempotencyKey: imageVariant === undefined ? `${idempotencyKey}:plain` : idempotencyKey },
+    ),
   )
 }
 
