@@ -7,8 +7,12 @@
   "routes": [{ "pattern": "punchline.passmint.com", "custom_domain": true }],
   "preview_urls": false,
   "compatibility_date": "2026-07-08",
-  // Required by the Passmint SDK's node:crypto webhook signature check.
-  "compatibility_flags": ["nodejs_compat"],
+  // nodejs_compat: the Passmint SDK's node:crypto webhook signature check.
+  // global_fetch_strictly_public: punchline.passmint.com shares a zone with
+  // api.passmint.com, and Cloudflare sends a same-zone subrequest to the
+  // origin instead of the API's Worker route, so Passmint calls hang. This
+  // makes fetch() go out like a public request, which reaches the route.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "main": "./workers/app.ts",
   "observability": {
     "enabled": true
