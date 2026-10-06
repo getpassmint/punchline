@@ -2,6 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "passmint-punchline-demo",
   "workers_dev": true,
+  // Cloudflare creates the DNS record and certificate for this on deploy;
+  // passmint.com must be a zone in the same account.
+  "routes": [{ "pattern": "punchline.passmint.com", "custom_domain": true }],
   "preview_urls": false,
   "compatibility_date": "2026-07-08",
   // Required by the Passmint SDK's node:crypto webhook signature check.
