@@ -1,4 +1,13 @@
-import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from 'react-router'
+import { useEffect } from 'react'
+import {
+  isRouteErrorResponse,
+  Links,
+  Meta,
+  Outlet,
+  Scripts,
+  ScrollRestoration,
+  useRevalidator,
+} from 'react-router'
 import type { Route } from './+types/root'
 import { DemoBanner } from './components/demo-banner'
 import './app.css'
@@ -46,7 +55,38 @@ export default function App() {
   )
 }
 
+// A request the browser dropped (Safari cancels in-flight requests while it
+// hands a .pkpass to the Wallet sheet, or the phone briefly loses signal).
+// Not a real failure, so retry quietly instead of showing an error page.
+function isDroppedRequest(error: unknown): boolean {
+  return (
+    error instanceof TypeError &&
+    /load failed|failed to fetch|networkerror|network connection/i.test(error.message)
+  )
+}
+
+function Reconnecting() {
+  const { revalidate } = useRevalidator()
+
+  useEffect(() => {
+    const timer = window.setTimeout(revalidate, 1500)
+
+    return () => window.clearTimeout(timer)
+  }, [revalidate])
+
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-2 px-6">
+      <p className="type-wide text-2xl">Reconnecting…</p>
+      <p className="text-ink-600">Lost the connection for a moment. Picking up where you were.</p>
+    </main>
+  )
+}
+
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  if (isDroppedRequest(error)) {
+    return <Reconnecting />
+  }
+
   let message = 'Something spilled'
   let details = 'An unexpected error occurred.'
 

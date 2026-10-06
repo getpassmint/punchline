@@ -1,3 +1,4 @@
+import { pauseLiveData } from '../hooks/use-live-data'
 import type { Device } from '../lib/device'
 import type { Card } from '../lib/loyalty.server'
 
@@ -17,6 +18,7 @@ export function WalletButtons({ card, device }: { card: Card; device: Device }) 
       {device !== 'android' && (
         <a
           href={appleHref}
+          onClick={() => pauseLiveData(15_000)}
           className="flex shrink-0 justify-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
         >
           <img src="/badges/apple-wallet.svg" alt="Add to Apple Wallet" className="h-12 w-auto" />
@@ -25,6 +27,7 @@ export function WalletButtons({ card, device }: { card: Card; device: Device }) 
       {device !== 'ios' && (
         <a
           href={googleHref}
+          onClick={() => pauseLiveData(15_000)}
           className="flex shrink-0 justify-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
         >
           <img src="/badges/google-wallet.svg" alt="Add to Google Wallet" className="h-12 w-auto" />
