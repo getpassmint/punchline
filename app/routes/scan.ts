@@ -8,7 +8,8 @@ import type { Route } from './+types/scan'
 
 // The URL behind the landing-page QR. Each scan issues a fresh pass with its
 // own serial — no signup — and sends the phone home, where the page renders
-// as "your card".
+// as "your card". It has no page of its own, so links to it need
+// `reloadDocument`: a client-side navigation never reaches the server.
 //
 // `?s=` carries the laptop's session id, so the phone joins it: the laptop
 // (polling) picks up the same card and can stamp it while you watch the

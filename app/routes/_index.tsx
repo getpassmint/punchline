@@ -200,6 +200,7 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
             onPhone ? (
               <Link
                 to={scanPath}
+                reloadDocument
                 className="w-fit rounded-full bg-cobalt-500 px-7 py-4 text-lg font-semibold text-white hover:bg-cobalt-600 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-butter-400"
               >
                 Get your punch card
@@ -222,6 +223,7 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
                   </p>
                   <Link
                     to={scanPath}
+                    reloadDocument
                     className="w-fit text-sm text-ink-600 underline decoration-ink-400/50 underline-offset-4 hover:text-ink-900"
                   >
                     No phone handy? Get the card in this browser
@@ -321,6 +323,7 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
               {card && (
                 <Link
                   to="/scan"
+                  reloadDocument
                   className="text-sm text-ink-400 underline decoration-ink-400/40 underline-offset-4 hover:text-ink-900"
                 >
                   Start a new card
