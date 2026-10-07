@@ -24,18 +24,18 @@ import {
 import { applyIntent, type FeedItem, pendingActivity } from '../lib/optimistic'
 import { describePassmintError, setupProblem } from '../lib/passmint.server'
 import { REWARD_AT } from '../lib/rules'
+import { seo } from '../lib/seo'
 import { ensureSession, readSession } from '../lib/session.server'
 import type { Route } from './+types/_index'
 
-export function meta(_: Route.MetaArgs) {
-  return [
-    { title: 'Punchline: a punch card that updates itself' },
-    {
-      name: 'description',
-      content:
-        'A fictional café whose punch card lives in Apple and Google Wallet and updates itself with every coffee. A Passmint demo.',
-    },
-  ]
+export function meta({ loaderData }: Route.MetaArgs) {
+  return seo({
+    title: 'Punchline: a punch card that updates itself',
+    description:
+      'A made-up café whose punch card lives in Apple and Google Wallet and updates itself with every coffee. A live demo of Passmint.',
+    path: '/',
+    origin: loaderData?.origin,
+  })
 }
 
 export async function loader({ request, context }: Route.LoaderArgs) {
@@ -58,6 +58,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       device,
       setupProblem: setupProblem(env),
       walletTracking: Boolean(env.PASSMINT_WEBHOOK_SECRET),
+      origin: env.PUBLIC_URL || new URL(request.url).origin,
       // Test-key passes carry a "[TEST]" watermark; the replica mirrors it.
       testMode: env.PASSMINT_API_KEY?.startsWith('pmk_test_') ?? false,
       scanPath,

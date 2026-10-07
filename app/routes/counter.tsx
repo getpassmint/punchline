@@ -15,11 +15,18 @@ import {
 import { applyIntent } from '../lib/optimistic'
 import { describePassmintError } from '../lib/passmint.server'
 import { STAMP_GOAL } from '../lib/rules'
+import { seo } from '../lib/seo'
 import { readSession } from '../lib/session.server'
 import type { Route } from './+types/counter'
 
-export function meta(_: Route.MetaArgs) {
-  return [{ title: 'The counter · Punchline' }]
+export function meta({ loaderData }: Route.MetaArgs) {
+  return seo({
+    title: 'The counter · Punchline',
+    description:
+      "What the barista sees in the Punchline demo: punch a card and the pass updates on the customer's phone.",
+    path: '/counter',
+    origin: loaderData?.origin,
+  })
 }
 
 // The till. It shows the cards on this browser, plus any card looked up by
@@ -37,6 +44,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   }
 
   return {
+    origin: env.PUBLIC_URL || new URL(request.url).origin,
     cards,
     code,
     notFound: code !== '' && lookedUp === null,

@@ -42,6 +42,10 @@
     "crons": ["17 4 * * *"]
   },
   "vars": {
+    // The site's public address, for canonical and share-card URLs (so the
+    // workers.dev address doesn't compete with it). Forks can drop this;
+    // they fall back to whatever address served the request.
+    "PUBLIC_URL": "https://punchline.passmint.com",
     // Each punch swaps the pass's strip image to match (art uploaded by
     // `pnpm setup:pass`). Safe before setup: missing variants fall back.
     "PASSMINT_STRIP_VARIANTS": "on",

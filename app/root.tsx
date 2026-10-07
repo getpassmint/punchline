@@ -6,6 +6,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLocation,
   useRevalidator,
 } from 'react-router'
 import type { Route } from './+types/root'
@@ -14,6 +15,7 @@ import './app.css'
 
 export const links: Route.LinksFunction = () => [
   { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+  { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
   { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
   {
     rel: 'preconnect',
@@ -34,6 +36,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         {/* Light-only: auto-dark modes can make the QR unscannable. */}
         <meta name="color-scheme" content="light" />
+        {/* Matches the demo banner, so the phone's browser chrome blends in. */}
+        <meta name="theme-color" content="#0e1a4d" />
         <Meta />
         <Links />
       </head>
@@ -47,9 +51,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  // The share-image page is screenshotted as-is, so it gets no banner.
+  const { pathname } = useLocation()
+
   return (
     <>
-      <DemoBanner />
+      {pathname !== '/og' && <DemoBanner />}
       <Outlet />
     </>
   )
