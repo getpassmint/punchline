@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { data, Form, Link, useFetcher, useNavigation } from 'react-router'
 import { renderSVG } from 'uqr'
 import { ActivityFeed } from '../components/activity-feed'
@@ -11,6 +11,7 @@ import { cloudflareContext } from '../context'
 import { useLiveData } from '../hooks/use-live-data'
 import { BRAND } from '../lib/brand'
 import { detectDevice } from '../lib/device'
+import { walletName } from '../lib/format'
 import {
   completeIssue,
   getSessionCard,
@@ -136,6 +137,33 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
     loaderData
   const issuing = card?.issueState === 'issuing' && !issueStuck
   const issueFailed = card?.issueState === 'failed' || issueStuck
+  const ready = card?.issueState === 'ready'
+
+  // Step 2 is done once a webhook says the pass is in a wallet, or once this
+  // browser has tapped an add button (or "I've added it") for this card.
+  const [addedHere, setAddedHere] = useState(false)
+  const cardId = card?.id
+
+  useEffect(() => {
+    try {
+      setAddedHere(cardId ? localStorage.getItem(`punchline:added:${cardId}`) === '1' : false)
+    } catch {
+      setAddedHere(false)
+    }
+  }, [cardId])
+
+  const added = Boolean(walletTracking && card?.addedAt) || addedHere
+  const markAdded = () => {
+    try {
+      if (cardId) {
+        localStorage.setItem(`punchline:added:${cardId}`, '1')
+      }
+    } catch {
+      // Private mode: remember for this page view only.
+    }
+
+    setAddedHere(true)
+  }
   const navigation = useNavigation()
   // A punch, skip or redeem in flight (through the action and the reload
   // after it). The page renders its outcome immediately; see optimistic.ts.
@@ -232,7 +260,7 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
 
   return (
     <Page>
-      <div className="grid items-start gap-x-16 gap-y-10 py-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:py-14">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-x-16 gap-y-10 py-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:py-14">
         {/* The pass: framed in a phone on a laptop, bare on a phone. */}
         <div className="lg:sticky lg:top-6">
           {onPhone ? (
@@ -264,177 +292,210 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
             </p>
           </div>
 
-          {card === null ? (
-            onPhone ? (
-              <Link
-                to={scanPath}
-                reloadDocument
-                className="w-fit rounded-full bg-cobalt-500 px-7 py-4 text-lg font-semibold text-white hover:bg-cobalt-600 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-butter-400"
-              >
-                Get your punch card
-              </Link>
-            ) : (
-              <div className="flex items-center gap-6">
-                <div
-                  className="size-40 shrink-0 rounded-2xl bg-white p-3 shadow-sm [&_svg]:size-full"
-                  // biome-ignore lint/security/noDangerouslySetInnerHtml: SVG generated server-side by uqr
-                  dangerouslySetInnerHTML={{ __html: qrSvg ?? '' }}
-                />
-                <div className="flex flex-col gap-3">
-                  <p className="text-lg font-semibold">Scan with your phone's camera</p>
-                  <p className="flex items-center gap-2 text-sm text-ink-600">
-                    <span
-                      aria-hidden
-                      className="size-2 rounded-full bg-cobalt-500 motion-safe:animate-pulse"
-                    />
-                    This page picks up your card once you've scanned
-                  </p>
+          <ol className="flex flex-col gap-3" aria-label="Try the demo">
+            <Step
+              n={1}
+              title="Get your card"
+              state={card && !issuing && !issueFailed ? 'done' : 'current'}
+              summary={
+                card?.shortId && (
+                  <>
+                    Card {card.shortId} ·{' '}
+                    <Link
+                      to="/scan"
+                      reloadDocument
+                      className="underline decoration-ink-400/40 underline-offset-4 hover:text-ink-900"
+                    >
+                      Start a new card
+                    </Link>
+                  </>
+                )
+              }
+            >
+              {card === null ? (
+                onPhone ? (
                   <Link
                     to={scanPath}
                     reloadDocument
-                    className="w-fit text-sm text-ink-600 underline decoration-ink-400/50 underline-offset-4 hover:text-ink-900"
+                    className="inline-flex h-12 items-center rounded-full bg-cobalt-500 px-6 font-semibold text-white hover:bg-cobalt-600 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-butter-400"
                   >
-                    No phone handy? Get the card in this browser
+                    Get your punch card
                   </Link>
-                </div>
-              </div>
-            )
-          ) : issuing ? (
-            <div className="flex flex-col gap-4" aria-busy="true">
-              <p role="status" className="flex items-center gap-2 font-medium text-cobalt-600">
-                <span
-                  aria-hidden
-                  className="size-2 rounded-full bg-cobalt-500 motion-safe:animate-pulse"
-                />
-                Passmint is issuing your pass…
-              </p>
-              <div className="flex flex-wrap gap-3" aria-hidden="true">
-                <span className="skeleton h-[60px] w-44 rounded-full" />
-                <span className="skeleton h-[60px] w-48 rounded-full" />
-              </div>
-              <p className="max-w-md text-sm text-ink-600">
-                It usually takes a second or two. You can add it to your wallet as soon as it
-                appears.
-              </p>
-            </div>
-          ) : issueFailed ? (
-            <div className="flex flex-col gap-4">
-              <div role="alert" className="rounded-2xl bg-cherry-50 px-5 py-4 text-cherry-600">
-                <p className="font-semibold">Passmint couldn't issue your pass</p>
-                <p className="mt-1 text-sm">
-                  {card.issueError ?? 'Issuing took too long. Try again.'}
-                </p>
-              </div>
-              <Form method="post">
-                <input type="hidden" name="intent" value="retry" />
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="rounded-full bg-cobalt-500 px-7 py-4 text-lg font-semibold text-white hover:bg-cobalt-600 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-butter-400 disabled:opacity-60"
-                >
-                  Try again
-                </button>
-              </Form>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {walletTracking && <WalletStatus card={card} />}
-
-              {error && (
-                <p
-                  role="alert"
-                  className="rounded-xl bg-cherry-50 px-4 py-3 text-sm text-cherry-600"
-                >
-                  {error}
-                </p>
-              )}
-
-              <div className="flex flex-wrap items-center gap-3">
-                <Form method="post">
-                  <input type="hidden" name="intent" value={earned ? 'redeem' : 'stamp'} />
-                  <button
-                    type="submit"
-                    disabled={pending}
-                    className={`rounded-full px-7 py-4 text-lg font-semibold focus-visible:outline-3 focus-visible:outline-offset-2 disabled:opacity-60 ${
-                      earned
-                        ? 'bg-butter-400 text-ink-900 hover:bg-butter-600 focus-visible:outline-cobalt-500'
-                        : 'bg-cobalt-500 text-white hover:bg-cobalt-600 focus-visible:outline-butter-400'
-                    }`}
-                  >
-                    {earned ? 'Redeem the free coffee' : 'Buy a coffee'}
-                  </button>
-                </Form>
-                {onPhone && !(walletTracking && card.addedAt) && (
-                  <WalletButtons card={card} device={device} />
-                )}
-                {!earned && count < REWARD_AT && (
+                ) : (
+                  <div className="flex items-center gap-5">
+                    <div
+                      className="size-32 shrink-0 rounded-xl bg-milk p-2 [&_svg]:size-full"
+                      // biome-ignore lint/security/noDangerouslySetInnerHtml: SVG generated server-side by uqr
+                      dangerouslySetInnerHTML={{ __html: qrSvg ?? '' }}
+                    />
+                    <div className="flex flex-col gap-2.5">
+                      <p className="font-medium">Scan with your phone's camera</p>
+                      <p className="flex items-center gap-2 text-sm text-ink-600">
+                        <span
+                          aria-hidden
+                          className="size-2 rounded-full bg-cobalt-500 motion-safe:animate-pulse"
+                        />
+                        This page picks up your card once you've scanned
+                      </p>
+                      <Link
+                        to={scanPath}
+                        reloadDocument
+                        className="w-fit text-sm text-ink-600 underline decoration-ink-400/50 underline-offset-4 hover:text-ink-900"
+                      >
+                        No phone handy? Get the card in this browser
+                      </Link>
+                    </div>
+                  </div>
+                )
+              ) : issueFailed ? (
+                <div className="flex flex-col gap-3">
+                  <div role="alert" className="rounded-xl bg-cherry-50 px-4 py-3 text-cherry-600">
+                    <p className="font-semibold">Passmint couldn't issue your pass</p>
+                    <p className="mt-1 text-sm">
+                      {card.issueError ?? 'Issuing took too long. Try again.'}
+                    </p>
+                  </div>
                   <Form method="post">
-                    <input type="hidden" name="intent" value="skip" />
+                    <input type="hidden" name="intent" value="retry" />
                     <button
                       type="submit"
                       disabled={pending}
-                      className="rounded-full border border-ink-900/15 bg-white px-5 py-3 font-medium text-ink-900 hover:border-ink-900/30 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 disabled:opacity-60"
+                      className="h-12 rounded-full px-6 font-semibold focus-visible:outline-3 focus-visible:outline-offset-2 disabled:opacity-60 bg-cobalt-500 text-white hover:bg-cobalt-600 focus-visible:outline-butter-400"
                     >
-                      Skip to {REWARD_AT} punches
+                      Try again
                     </button>
                   </Form>
-                )}
-              </div>
-              {pending && (
-                <p
-                  role="status"
-                  className="flex items-center gap-2 text-sm font-medium text-cobalt-600"
-                >
+                </div>
+              ) : (
+                <p role="status" className="flex items-center gap-2 text-cobalt-600">
                   <span
                     aria-hidden
                     className="size-2 rounded-full bg-cobalt-500 motion-safe:animate-pulse"
                   />
-                  Sending the update to your phone…
+                  Passmint is issuing your pass. It usually takes a second or two.
                 </p>
               )}
-              <p className="max-w-md text-sm text-ink-600">
-                {earned
-                  ? 'At a real café the barista redeems it at the till. Either way the card starts a new round.'
-                  : onPhone
-                    ? 'Each tap adds a punch and pushes it to the pass in your wallet. Add the card first, then try it with Wallet open.'
-                    : 'Each tap adds a punch and pushes it to the pass on your phone, so keep the phone where you can see it.'}
-                {!earned &&
-                  count < REWARD_AT &&
-                  ' The skip button is a demo shortcut to the free-coffee card.'}
-              </p>
+            </Step>
 
-              {joinQrSvg && !(walletTracking && card.addedAt) && (
-                <div className="flex items-center gap-4 rounded-2xl bg-white p-3 pr-5 shadow-[0_1px_2px_rgb(14_26_77/0.06)]">
-                  <div
-                    className="size-24 shrink-0 [&_svg]:size-full"
-                    // biome-ignore lint/security/noDangerouslySetInnerHtml: SVG generated server-side by uqr
-                    dangerouslySetInnerHTML={{ __html: joinQrSvg }}
-                  />
-                  <div>
-                    <p className="font-semibold">Add this card to your phone</p>
-                    <p className="mt-1 text-sm text-ink-600">
-                      Scan with your phone's camera to open card {card.shortId} there, then add it
-                      to Apple or Google Wallet.
+            <Step
+              n={2}
+              title="Add it to your wallet"
+              state={!ready ? 'upcoming' : added ? 'done' : 'current'}
+              summary={
+                walletTracking && card?.addedAt ? `In ${walletName(card.walletPlatform)}` : 'Added'
+              }
+            >
+              {card &&
+                ready &&
+                (onPhone ? (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-wrap gap-3">
+                      <WalletButtons card={card} device={device} onAdd={markAdded} />
+                    </div>
+                    <p className="text-sm text-ink-600">
+                      Add the pass, then come back here to buy a coffee.
                     </p>
                   </div>
+                ) : (
+                  <div className="flex items-center gap-5">
+                    {joinQrSvg && (
+                      <div
+                        className="size-28 shrink-0 rounded-xl bg-milk p-2 [&_svg]:size-full"
+                        // biome-ignore lint/security/noDangerouslySetInnerHtml: SVG generated server-side by uqr
+                        dangerouslySetInnerHTML={{ __html: joinQrSvg }}
+                      />
+                    )}
+                    <div className="flex flex-col gap-2.5">
+                      <p className="text-sm text-ink-600">
+                        Scan with your phone's camera to open card {card.shortId} there, then add it
+                        to Apple or Google Wallet.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={markAdded}
+                        className="w-fit text-sm font-medium text-cobalt-600 underline decoration-cobalt-500/40 underline-offset-4 hover:text-cobalt-500"
+                      >
+                        I've added it
+                      </button>
+                    </div>
+                  </div>
+                ))}
+            </Step>
+
+            <Step
+              n={3}
+              title={earned ? 'Redeem your free coffee' : 'Buy a coffee'}
+              state={!ready ? 'upcoming' : added ? 'current' : 'available'}
+            >
+              {card && ready && (
+                <div className="flex flex-col gap-3">
+                  {error && (
+                    <p
+                      role="alert"
+                      className="rounded-xl bg-cherry-50 px-4 py-3 text-sm text-cherry-600"
+                    >
+                      {error}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Form method="post">
+                      <input type="hidden" name="intent" value={earned ? 'redeem' : 'stamp'} />
+                      <button
+                        type="submit"
+                        disabled={pending}
+                        className={`h-12 rounded-full px-6 font-semibold focus-visible:outline-3 focus-visible:outline-offset-2 disabled:opacity-60 ${
+                          earned
+                            ? 'bg-butter-400 text-ink-900 hover:bg-butter-600 focus-visible:outline-cobalt-500'
+                            : 'bg-cobalt-500 text-white hover:bg-cobalt-600 focus-visible:outline-butter-400'
+                        }`}
+                      >
+                        {earned ? 'Redeem the free coffee' : 'Buy a coffee'}
+                      </button>
+                    </Form>
+                    {!earned && count < REWARD_AT && (
+                      <Form method="post">
+                        <input type="hidden" name="intent" value="skip" />
+                        <button
+                          type="submit"
+                          disabled={pending}
+                          className="h-12 rounded-full px-6 font-semibold focus-visible:outline-3 focus-visible:outline-offset-2 disabled:opacity-60 border border-ink-900/15 bg-white font-medium text-ink-900 hover:border-ink-900/30 focus-visible:outline-cobalt-500"
+                        >
+                          Skip to {REWARD_AT} punches
+                        </button>
+                      </Form>
+                    )}
+                  </div>
+                  {pending ? (
+                    <p
+                      role="status"
+                      className="flex items-center gap-2 text-sm font-medium text-cobalt-600"
+                    >
+                      <span
+                        aria-hidden
+                        className="size-2 rounded-full bg-cobalt-500 motion-safe:animate-pulse"
+                      />
+                      Sending the update to your phone…
+                    </p>
+                  ) : (
+                    <p className="text-sm text-ink-600">
+                      {earned
+                        ? 'At a real café the barista redeems it at the till. Either way the card starts a new round.'
+                        : onPhone
+                          ? 'Each tap punches the card and pushes it to the pass in your wallet. Open Wallet to see it.'
+                          : 'Each tap punches the card and pushes it to the pass on your phone, so keep the phone where you can see it.'}
+                      {!earned &&
+                        count < REWARD_AT &&
+                        ' Skip jumps straight to the free-coffee card.'}
+                    </p>
+                  )}
+                  {walletTracking && <WalletStatus card={card} />}
                 </div>
               )}
-            </div>
-          )}
+            </Step>
+          </ol>
 
           <section>
-            <div className="mb-2 flex items-baseline justify-between gap-4">
-              <h2 className="text-lg font-semibold">What just happened</h2>
-              {card && (
-                <Link
-                  to="/scan"
-                  reloadDocument
-                  className="text-sm text-ink-400 underline decoration-ink-400/40 underline-offset-4 hover:text-ink-900"
-                >
-                  Start a new card
-                </Link>
-              )}
-            </div>
+            <h2 className="mb-2 text-lg font-semibold">What just happened</h2>
             <ActivityFeed items={feed} freshIds={freshIds} />
           </section>
         </div>
@@ -442,6 +503,78 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
 
       <BuiltWithPassmint />
     </Page>
+  )
+}
+
+type StepState = 'done' | 'current' | 'available' | 'upcoming'
+
+// One step of the demo. Done steps collapse to a line with a check; the
+// current step is highlighted; later steps are dimmed until reachable.
+function Step({
+  n,
+  title,
+  state,
+  summary,
+  children,
+}: {
+  n: number
+  title: string
+  state: StepState
+  summary?: React.ReactNode
+  children?: React.ReactNode
+}) {
+  const open = state === 'current' || state === 'available'
+
+  return (
+    <li
+      aria-current={state === 'current' ? 'step' : undefined}
+      className={`rounded-2xl ${
+        open ? 'bg-white p-5 shadow-[0_1px_2px_rgb(14_26_77/0.06)]' : 'px-5 py-2.5'
+      } ${state === 'current' ? 'ring-2 ring-cobalt-500/25' : ''} ${
+        state === 'upcoming' ? 'opacity-50' : ''
+      }`}
+    >
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5">
+        <span
+          aria-hidden="true"
+          className={`grid size-7 shrink-0 place-items-center rounded-full text-sm font-bold tabular-nums ${
+            state === 'done'
+              ? 'bg-leaf-600 text-white'
+              : open
+                ? 'bg-butter-400 text-ink-900'
+                : 'border border-ink-400/60 text-ink-400'
+          }`}
+        >
+          {state === 'done' ? (
+            <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden="true">
+              <path
+                d="M3 8.5 6.5 12 13 4.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : (
+            n
+          )}
+        </span>
+        <h3 className={`whitespace-nowrap font-semibold ${state === 'done' ? 'text-ink-600' : ''}`}>
+          <span className="sr-only">
+            Step {n}
+            {state === 'done' ? ', done' : ''}:{' '}
+          </span>
+          {title}
+        </h3>
+        {state === 'done' && summary && (
+          <span className="w-full pl-10 text-sm text-ink-400 sm:ml-auto sm:w-auto sm:pl-0">
+            {summary}
+          </span>
+        )}
+      </div>
+      {open && children && <div className="mt-4 sm:pl-10">{children}</div>}
+    </li>
   )
 }
 

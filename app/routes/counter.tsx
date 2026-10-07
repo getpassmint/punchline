@@ -152,25 +152,27 @@ export default function Counter({ loaderData, actionData }: Route.ComponentProps
               return (
                 <li
                   key={card.id}
-                  className={`flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl bg-white p-3 pr-4 shadow-[0_1px_2px_rgb(14_26_77/0.06)] ${
+                  className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 rounded-2xl bg-white p-3 shadow-[0_1px_2px_rgb(14_26_77/0.06)] sm:grid-cols-[9rem_minmax(0,1fr)_auto] sm:gap-x-5 sm:pr-4 ${
                     earned ? 'ring-2 ring-butter-400' : ''
                   }`}
                 >
                   <PassStrip
                     count={card.stampCount}
                     state={card.state}
-                    className="h-auto w-36 shrink-0 rounded-lg"
+                    className="col-span-2 h-auto w-full rounded-lg sm:col-span-1"
                   />
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 pl-1 sm:pl-0">
                     <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                       <span className="font-semibold tabular-nums">
                         {card.stampCount} / {STAMP_GOAL}
                       </span>
                       {card.shortId && (
-                        <span className="text-sm text-ink-400 tabular-nums">{card.shortId}</span>
+                        <span className="min-w-0 truncate text-sm text-ink-400 tabular-nums">
+                          {card.shortId}
+                        </span>
                       )}
                       {yours && (
-                        <span className="rounded-full bg-cobalt-50 px-2 py-0.5 text-xs font-semibold text-cobalt-600">
+                        <span className="whitespace-nowrap rounded-full bg-cobalt-50 px-2 py-0.5 text-xs font-semibold text-cobalt-600">
                           Your card
                         </span>
                       )}
@@ -192,7 +194,7 @@ export default function Counter({ loaderData, actionData }: Route.ComponentProps
                       <button
                         type="submit"
                         disabled={busy}
-                        className={`min-w-24 rounded-full px-5 py-2.5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60 ${
+                        className={`h-12 min-w-24 rounded-full px-5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60 ${
                           earned
                             ? 'bg-butter-400 text-ink-900 hover:bg-butter-600 focus-visible:outline-cobalt-500'
                             : 'bg-cobalt-500 text-white hover:bg-cobalt-600 focus-visible:outline-butter-400'

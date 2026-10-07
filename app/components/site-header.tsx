@@ -9,7 +9,7 @@ const navLink =
 
 export function SiteHeader() {
   return (
-    <header className="flex items-center justify-between gap-4 py-5">
+    <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-5">
       <Link
         to="/"
         className="flex items-center gap-2.5 rounded-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cobalt-500"
