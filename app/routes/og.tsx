@@ -26,10 +26,13 @@ export default function OgImage() {
           </p>
         </div>
         <div className="flex items-center gap-3 text-[22px] text-ink-600">
-          <span className="flex items-center gap-2 rounded-full border border-ink-900/15 bg-white px-4 py-2 text-ink-900">
-            <span className="[&_svg]:h-6">
-              <PassmintMark />
+          {/* Built here rather than with the shared lockup, whose wordmark is a
+              fixed size: mark, name and "demo" share one size and baseline. */}
+          <span className="flex items-center gap-2.5 rounded-full border border-ink-900/15 bg-white px-5 py-2.5 leading-none">
+            <span className="text-ink-900 [&_svg]:h-[22px]">
+              <PassmintMark wordmark={false} />
             </span>
+            <span className="font-semibold tracking-tight text-ink-900">Passmint</span>
             <span className="text-ink-600">demo</span>
           </span>
           <span>punchline.passmint.com</span>
