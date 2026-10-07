@@ -1,17 +1,12 @@
-# Copy to .dev.vars (gitignored). Production values are Wrangler secrets:
-#   wrangler secret put PASSMINT_API_KEY
-#   wrangler secret put PASSMINT_WEBHOOK_SECRET
+# Copy to .dev.vars for local development. In production these are
+# Worker secrets: `wrangler secret put PASSMINT_API_KEY`.
 
-# TODO: your Passmint API key. A pmk_test_ key issues fully functional passes
-# (real APNs pushes, real webhooks) watermarked "[TEST]" on the pass face.
+# Your Passmint API key. A pmk_test_ key issues working passes marked [TEST].
 PASSMINT_API_KEY=
 
-# TODO: the template this app issues against (tmpl_...). Overrides the
-# placeholder in wrangler.jsonc for local dev. See README for the field keys
-# the template needs.
+# The loyalty template to issue against (tmpl_...).
 PASSMINT_TEMPLATE_ID=
 
-# Optional — set once you register the webhook receiver (README "Lifecycle
-# events"); it turns on the "in your wallet / delivered" receipt. Returned
-# once by POST /v1/webhooks on create.
+# Optional: the webhook signing secret, which turns on wallet status
+# ("in your wallet", "delivered") in the UI.
 # PASSMINT_WEBHOOK_SECRET=

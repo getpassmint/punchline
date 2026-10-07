@@ -1,17 +1,16 @@
 import type { PassmintEventType } from './passmint.server'
 
-// One JSON line per lifecycle transition — the demo's whole analytics story,
-// readable with `wrangler tail`. The `punchline` source is this app's own
-// transitions; `passmint` relays canonical events from the webhook receiver.
+// One JSON log line per event, readable with `wrangler tail`. `punchline` is
+// the app's own; `passmint` relays webhook events.
 type AppEvent =
   | 'pass.issued'
-  | 'pass.stamped'
-  | 'pass.reward_earned'
+  | 'pass.issue_failed'
+  | 'pass.punched'
+  | 'pass.reward'
   | 'pass.redeemed'
   | 'pass.retired'
   | 'pass.retire_failed'
   | 'pass.strip_variant_missing'
-  | 'pass.issue_failed'
 
 export function logEvent(
   source: 'punchline' | 'passmint',

@@ -25,9 +25,7 @@ export function AboutDialog({ className }: { className?: string }) {
         How it works
       </button>
 
-      {/* Native <dialog>: focus trapping and Escape-to-close come for free.
-          The backdrop-click dismissal below is enhancement — keyboard users
-          have Escape and the Close button. */}
+      {/* Native <dialog> handles focus trapping and Escape. */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop dismissal is enhancement; Escape and Close cover keyboards */}
       <dialog
         ref={ref}
@@ -91,7 +89,6 @@ export function AboutDialog({ className }: { className?: string }) {
                 only keeps count.
               </p>
             </div>
-            {/* TODO: confirm the final Passmint marketing URL. */}
             <a
               href="https://passmint.com"
               className="shrink-0 self-start rounded-full bg-butter-400 px-5 py-2.5 font-semibold text-ink-900 hover:bg-butter-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:self-center"

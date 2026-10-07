@@ -3,7 +3,7 @@
 // its workers.dev address and any fork all point previews at themselves.
 const SITE_NAME = 'Punchline'
 
-export const OG_IMAGE = {
+const OG_IMAGE = {
   path: '/og-image.png',
   width: 1200,
   height: 630,

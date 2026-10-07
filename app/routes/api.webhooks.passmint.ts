@@ -4,12 +4,10 @@ import { recordWalletEvent } from '../lib/loyalty.server'
 import { PassmintError, type PassmintEvent, verifyWebhookEvent } from '../lib/passmint.server'
 import type { Route } from './+types/api.webhooks.passmint'
 
-// Passmint's canonical lifecycle events land here (pass.added_to_wallet,
-// pass.update_delivered, pass.removed, …). We verify them, log them, and fold
-// the wallet ones into the card — that's what lights up "in your wallet" and
-// "delivered to your phone" on the landing page and the counter. Register
-// the endpoint once with `passmint.webhooks.create` and store its secret as
-// PASSMINT_WEBHOOK_SECRET — see the README "Lifecycle events" section.
+// Passmint's lifecycle events (pass.added_to_wallet, pass.update_delivered,
+// pass.removed, …). Verified, logged, and folded into the card's wallet
+// status. Register with `passmint.webhooks.create` and store the secret as
+// PASSMINT_WEBHOOK_SECRET.
 export async function action({ request, context }: Route.ActionArgs) {
   const { env } = context.get(cloudflareContext)
   const secret = env.PASSMINT_WEBHOOK_SECRET
@@ -25,7 +23,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   try {
     event = await verifyWebhookEvent(env, request, secret)
   } catch (err) {
-    // A non-2xx isn't fatal — Passmint retries failed deliveries with backoff.
+    // Passmint retries failed deliveries, so a 400 isn't fatal.
     if (err instanceof PassmintError) {
       return new Response('invalid signature', { status: 400 })
     }

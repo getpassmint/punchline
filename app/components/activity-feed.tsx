@@ -4,7 +4,7 @@ import type { FeedItem } from '../lib/optimistic'
 import { STAMP_GOAL } from '../lib/rules'
 
 // The card's history, newest first, each row naming the Passmint call or
-// webhook behind it — the part of the demo you can't see on the phone.
+// webhook behind it.
 export function ActivityFeed({ items, freshIds }: { items: FeedItem[]; freshIds: Set<number> }) {
   if (items.length === 0) {
     return (

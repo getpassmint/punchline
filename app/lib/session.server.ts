@@ -1,9 +1,8 @@
 import { createCookie } from 'react-router'
 
-// A visitor's session id — a pointer, not auth; there are no accounts here.
-// The laptop mints it, the QR carries it to the phone, and from then on both
-// browsers resolve the same card. Anyone holding the id can stamp that card,
-// which is fine for a demo café and exactly what makes the pairing work.
+// A visitor's session id: a pointer, not auth (there are no accounts). The
+// QR carries it from the laptop to the phone so both show the same card.
+// Anyone holding the id can punch that card, which is fine for a demo.
 const sessionCookie = createCookie('punchline_session', {
   path: '/',
   httpOnly: true,
@@ -24,8 +23,7 @@ export async function readSession(request: Request): Promise<string | null> {
   return isSessionId(value) ? value : null
 }
 
-// The existing session, or a fresh one plus the Set-Cookie header that
-// persists it.
+// The existing session, or a new one with the header that sets it.
 export async function ensureSession(
   request: Request,
 ): Promise<{ sessionId: string; headers: HeadersInit }> {

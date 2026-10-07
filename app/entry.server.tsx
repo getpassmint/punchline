@@ -30,7 +30,7 @@ export default async function handleRequest(
   shellRendered = true
 
   // Ensure requests from bots and SPA Mode renders wait for all content to
-  // load before responding — by waiting for the entire stream to be ready.
+  // load before responding, by waiting for the entire stream to be ready.
   if ((userAgent && isbot(userAgent)) || routerContext.isSpaMode) {
     await body.allReady
   }

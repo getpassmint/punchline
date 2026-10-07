@@ -36,7 +36,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         {/* Light-only: auto-dark modes can make the QR unscannable. */}
         <meta name="color-scheme" content="light" />
-        {/* Matches the demo banner, so the phone's browser chrome blends in. */}
+        {/* Matches the banner, so mobile browser chrome blends in. */}
         <meta name="theme-color" content="#0e1a4d" />
         <Meta />
         <Links />
@@ -62,9 +62,8 @@ export default function App() {
   )
 }
 
-// A request the browser dropped (Safari cancels in-flight requests while it
-// hands a .pkpass to the Wallet sheet, or the phone briefly loses signal).
-// Not a real failure, so retry quietly instead of showing an error page.
+// A request the browser dropped (signal loss, or Safari handing a .pkpass to
+// Wallet) isn't a real failure: retry quietly instead of showing an error.
 function isDroppedRequest(error: unknown): boolean {
   return (
     error instanceof TypeError &&

@@ -2,16 +2,13 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "passmint-punchline-demo",
   "workers_dev": true,
-  // Cloudflare creates the DNS record and certificate for this on deploy;
-  // passmint.com must be a zone in the same account.
+  // Needs the domain's zone in the same Cloudflare account. Forks: change or remove.
   "routes": [{ "pattern": "punchline.passmint.com", "custom_domain": true }],
   "preview_urls": false,
   "compatibility_date": "2026-07-08",
-  // nodejs_compat: the Passmint SDK's node:crypto webhook signature check.
-  // global_fetch_strictly_public: punchline.passmint.com shares a zone with
-  // api.passmint.com, and Cloudflare sends a same-zone subrequest to the
-  // origin instead of the API's Worker route, so Passmint calls hang. This
-  // makes fetch() go out like a public request, which reaches the route.
+  // nodejs_compat: webhook signature checks (node:crypto).
+  // global_fetch_strictly_public: this site shares a zone with api.passmint.com,
+  // and same-zone fetches skip Worker routes unless they go out as public requests.
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "main": "./workers/app.ts",
   "observability": {
@@ -21,15 +18,12 @@
   "d1_databases": [
     {
       "binding": "DB",
-      // The database_id is what connects the Worker to its data; the name is a
-      // label (the original database keeps its old name in Cloudflare).
       "database_name": "passmint-punchline-demo",
       "database_id": "a7c7dda3-d5aa-4278-91df-624d9ba0f6a1",
       "migrations_dir": "migrations"
     }
   ],
-  // /scan mints a real pass per request; cap it per IP. namespace_id is any
-  // integer unique within your Cloudflare account.
+  // /scan issues a real pass per request, so it's capped per IP.
   "ratelimits": [
     {
       "name": "SCAN_LIMITER",
@@ -37,17 +31,14 @@
       "simple": { "limit": 6, "period": 60 }
     }
   ],
-  // Daily sweep that voids cards left idle (workers/app.ts `scheduled`).
+  // Daily cleanup of idle cards (workers/app.ts).
   "triggers": {
     "crons": ["17 4 * * *"]
   },
   "vars": {
-    // The site's public address, for canonical and share-card URLs (so the
-    // workers.dev address doesn't compete with it). Forks can drop this;
-    // they fall back to whatever address served the request.
+    // Canonical address for share cards. Optional: defaults to the request's origin.
     "PUBLIC_URL": "https://punchline.passmint.com",
-    // Each punch swaps the pass's strip image to match (art uploaded by
-    // `pnpm setup:pass`). Safe before setup: missing variants fall back.
+    // Swap the strip art on each punch (needs `pnpm setup:pass`; falls back without it).
     "PASSMINT_STRIP_VARIANTS": "on",
     "PASSMINT_TEMPLATE_ID": "tmpl_kfterihycqvs6fvylkcgly5r"
   }

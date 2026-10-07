@@ -1,14 +1,9 @@
-// One-off setup for the pass template: brand colours and field labels, a
-// lock-screen change message on the punch count, and the strip art — one
-// image variant per punch count, rendered from the same <PassStrip> the web
-// page draws. After this, every passes.update() picks the matching strip via
-// `imageVariant`, so the punches on the pass change like the ones on the page.
+// Sets up the pass template: colours, field labels, a lock-screen change
+// message on the punch count, and one strip image per punch count (drawn by
+// the same <PassStrip> as the page). Safe to re-run.
 //
-//   pnpm setup:pass                         # reads PASSMINT_* from .dev.vars
-//   pnpm setup:pass --preview ./pass-art   # just write the PNGs, no API calls
-//
-// Templates are shared by test and live mode, so this changes the template
-// for both. Safe to re-run; it overwrites in place.
+//   pnpm setup:pass                        # uses PASSMINT_* from .dev.vars
+//   pnpm setup:pass --preview ./pass-art   # only write the PNGs
 
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -30,8 +25,7 @@ const mark = renderToStaticMarkup(<LogoMark size={20} />).replace(
   '<svg xmlns="http://www.w3.org/2000/svg" ',
 )
 
-// Strip art per punch count, rendered at 3×. Count 9 is the reward state —
-// the ninth punch earns the free coffee.
+// Strip art per punch count at 3×. Count 9 is the reward card.
 const strip = (count: number) =>
   png(
     renderToStaticMarkup(
@@ -66,8 +60,7 @@ if (!apiKey || !templateId) {
 
 const passmint = new Passmint({ apiKey })
 
-// Templates are shared by test and live mode, so this changes the live card
-// too — say which key is doing it.
+// Templates are shared by test and live mode: this changes both.
 console.log(
   `Updating ${templateId} with a ${passmint.mode} key (templates are shared by both modes).`,
 )

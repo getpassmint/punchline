@@ -1,16 +1,12 @@
 import { useEffect } from 'react'
 import { useNavigation, useRevalidator } from 'react-router'
 
-// Re-runs the route's loaders every `intervalMs` while the tab is visible,
-// and immediately when it becomes visible again. It's what keeps the laptop,
-// the phone and the counter in step without a socket: stamps from any one of
-// them show up on the others within a couple of seconds. Plain polling is
-// plenty for a demo; a real till would push over a WebSocket or SSE.
+// Re-runs the route's loaders every `intervalMs` while the tab is visible.
+// Plain polling keeps the laptop, phone and counter in step; a real till
+// would push over a WebSocket instead.
 //
-// Polling pauses while the page is being left or handed off. Tapping "Add to
-// Apple Wallet" makes Safari hand the .pkpass to the Wallet sheet, which
-// cancels the page's in-flight requests; a poll caught mid-flight would
-// surface as an error behind the sheet.
+// Polling pauses while the page is being left: Safari cancels in-flight
+// requests when it hands a .pkpass to the Wallet sheet.
 let pausedUntil = 0
 
 export function pauseLiveData(ms: number) {

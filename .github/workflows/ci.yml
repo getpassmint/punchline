@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  ci:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,28 +19,3 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm build
-
-  # TODO: enable once the production D1 database exists (wrangler.jsonc
-  # database_id) and repo secrets CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID
-  # are set. Migrations run first so new code never sees an old schema.
-  #
-  # deploy:
-  #   needs: ci
-  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: pnpm/action-setup@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 24
-  #         cache: pnpm
-  #     - run: pnpm install --frozen-lockfile
-  #     - run: pnpm db:migrate:remote
-  #       env:
-  #         CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-  #         CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-  #     - run: pnpm run deploy
-  #       env:
-  #         CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-  #         CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

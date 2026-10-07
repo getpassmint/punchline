@@ -1,5 +1,4 @@
-// Says up front what this is: a made-up café on top of a real product.
-// Rendered by the root layout so it spans the full window on every page.
+// Says up front that the café is made up and the product is real.
 export function DemoBanner() {
   return (
     <div className="bg-ink-900 px-5 py-2.5 text-center text-sm text-white sm:px-8">
@@ -7,7 +6,6 @@ export function DemoBanner() {
         Punchline is a made-up café: a live demo of Passmint, the API for Apple and Google Wallet
         passes.
       </span>{' '}
-      {/* TODO: confirm the final Passmint marketing URL. */}
       <a
         href="https://passmint.com"
         className="whitespace-nowrap font-semibold text-butter-400 underline decoration-butter-400/50 underline-offset-4 hover:decoration-butter-400"

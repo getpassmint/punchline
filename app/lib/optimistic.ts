@@ -1,11 +1,9 @@
 import type { Activity, Card } from './loyalty.server'
 import { REWARD_AT } from './rules'
 
-// What a card will look like once a pending punch, skip or redeem lands.
-// Passmint takes a moment to re-sign and push the pass, so the page shows
-// the result straight away and reconciles when the server answers; if
-// Passmint refuses, the loader data never changed and the page snaps back.
-// Mirrors the guards in loyalty.server.ts.
+// The card as it will look once a pending transition lands, so the page can
+// show it immediately. If Passmint refuses, the loader data never changed and
+// the page snaps back. Mirrors the guards in loyalty.server.ts.
 export function applyIntent(card: Card, intent: FormDataEntryValue | null | undefined): Card {
   if (intent === 'stamp' && card.state === 'active' && card.stampCount < REWARD_AT) {
     const stampCount = card.stampCount + 1
@@ -26,8 +24,7 @@ export function applyIntent(card: Card, intent: FormDataEntryValue | null | unde
 
 export type FeedItem = Activity & { pending?: boolean }
 
-// A placeholder feed row for the pending transition, shown until the real
-// one arrives with the server's answer.
+// A placeholder feed row for the pending transition.
 export function pendingActivity(before: Card, after: Card, actor: string): FeedItem | null {
   if (after === before) {
     return null

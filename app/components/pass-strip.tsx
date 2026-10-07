@@ -13,11 +13,9 @@ const RADIUS = 17
 const GAP_X = 52
 const ROWS_Y = [27, 71]
 
-// The card's strip art: ten punch slots, punched ones showing butter through
-// the hole with a bean in it, and the tenth slot a cup. One component serves
-// twice — the live replica on the web page, and (rendered to PNG by
-// scripts/setup-pass.tsx) the strip images Passmint swaps onto the real
-// pass with each punch.
+// The strip art: ten punch slots, punched ones showing a bean, the tenth a
+// cup. Drawn on the page, and rendered to PNG by scripts/setup-pass.tsx for
+// the real pass, so the two always match.
 export function PassStrip({
   count,
   state,

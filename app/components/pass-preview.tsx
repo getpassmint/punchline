@@ -5,12 +5,8 @@ import { PassStrip } from './pass-strip'
 
 export type WalletPlatform = 'apple' | 'google'
 
-/**
- * The code printed under the replica's barcode. The real pass encodes its
- * serial number there; the replica uses an obvious sample so nobody mistakes
- * it for (or tries to scan) the real thing.
- */
-export const SAMPLE_CODE = '123abc'
+/** The replica's barcode text: an obvious sample, not the pass's serial. */
+const SAMPLE_CODE = '123abc'
 
 interface PreviewProps {
   count: number
@@ -24,9 +20,8 @@ interface PreviewProps {
   testMode?: boolean
 }
 
-// A replica of the pass as each wallet draws it, so a visitor without the
-// pass on their phone still sees what changes. Labels and values match what
-// loyaltyFieldValues() sends; the barcode is a sample (see SAMPLE_CODE).
+// A replica of the pass as each wallet draws it, so visitors can see what
+// changes without the pass on their phone.
 export function PassPreview({ platform, ...props }: PreviewProps & { platform: WalletPlatform }) {
   return platform === 'google' ? <GooglePass {...props} /> : <ApplePass {...props} />
 }
@@ -95,10 +90,8 @@ function ApplePass({ count, state, newest, placeholder, issuing, testMode }: Pre
   )
 }
 
-// Google Wallet's loyalty card: logo and issuer name, the program name as a
-// large title, the barcode with its code underneath, and the strip art as
-// the hero image along the bottom. Google doesn't show the punch count or
-// reward line on the card face; the hero image carries the punches.
+// Google Wallet's loyalty card: name, title, barcode, and the strip art as
+// the hero image. Google doesn't show the punch count on the card face.
 function GooglePass({ count, state, newest, placeholder, issuing, testMode }: PreviewProps) {
   const name = testMode ? 'punchline [TEST]' : 'punchline'
 
@@ -159,11 +152,10 @@ export function LogoMark({ size = 18 }: { size?: number }) {
   )
 }
 
-// A sample PDF417, the barcode both wallets show for this pass. It follows
-// the symbology's shape (the fixed start pattern, row indicators, 17-module
-// codewords of four bars and four spaces, the stop pattern) with codewords
-// from a fixed seed, so it looks right and renders the same on the server
-// and the client, but encodes nothing.
+// A sample PDF417 (the barcode both wallets show for this pass). It has the
+// real structure (start and stop patterns, 17-module codewords) but fixed
+// random data: it looks right, renders identically on server and client,
+// and encodes nothing.
 const START = [8, 1, 1, 1, 1, 1, 1, 3]
 const STOP = [7, 1, 1, 3, 1, 1, 1, 2, 1]
 const ROWS = 6
@@ -239,9 +231,8 @@ function Pdf417({ className }: { className?: string }) {
   )
 }
 
-// A phone outline, enough to say "this is on your phone" without
-// skeuomorphic chrome: an iPhone-style island for Apple Wallet, a
-// punch-hole camera for Google Wallet on Android.
+// A simple phone outline: an iPhone island for Apple, a punch-hole camera for
+// Android.
 export function PhoneFrame({
   platform = 'apple',
   children,

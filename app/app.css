@@ -10,7 +10,7 @@
      headlines, normal for everything else. */
   --font-sans: "Archivo", "Helvetica Neue", system-ui, sans-serif;
 
-  /* Mirrors app/lib/brand.ts — the pass template uses the same values. */
+  /* Mirrors app/lib/brand.ts. */
   --color-cobalt-50: #eef1fd;
   --color-cobalt-100: #dce3fb;
   --color-cobalt-500: #2340d8;

@@ -1,10 +1,8 @@
 import { timeAgo, walletName } from '../lib/format'
 import type { Card } from '../lib/loyalty.server'
 
-// The delivery receipt: where the pass lives and whether the phone has
-// fetched the latest push. Built entirely from Passmint webhooks
-// (pass.added_to_wallet, pass.update_delivered, pass.removed), so it only
-// renders when a webhook secret is configured — without one we can't know.
+// Where the pass lives and whether the phone has fetched the latest update.
+// Built from Passmint webhooks, so it only shows when they're configured.
 export function WalletStatus({ card, size = 'md' }: { card: Card; size?: 'md' | 'sm' }) {
   const text = size === 'sm' ? 'text-xs' : 'text-sm'
 

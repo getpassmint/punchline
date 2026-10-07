@@ -9,7 +9,7 @@ build/
 worker-configuration.d.ts
 *.tsbuildinfo
 
-# Local secrets — template lives in .dev.vars.example
+# Local secrets (see .dev.vars.example)
 .dev.vars*
 !.dev.vars.example
 .env
@@ -17,7 +17,6 @@ worker-configuration.d.ts
 
 *.log
 .DS_Store
-.gstack/
 
 # `pnpm setup:pass --preview` output
 pass-art/

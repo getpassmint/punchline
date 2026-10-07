@@ -6,18 +6,14 @@ import { setupProblem } from '../lib/passmint.server'
 import { isSessionId, readSession, serializeSession } from '../lib/session.server'
 import type { Route } from './+types/scan'
 
-// The URL behind the landing-page QR. Each scan creates a card — no signup —
-// and sends the phone home straight away, where the page shows the pass
-// appearing as Passmint issues it. It has no page of its own, so links to it need
-// `reloadDocument`: a client-side navigation never reaches the server.
-//
-// `?s=` carries the laptop's session id, so the phone joins it: the laptop
-// (polling) picks up the same card and can stamp it while you watch the
-// phone. Without it, the browser's own session is used, or a new one.
+// The QR's target. Creates a card and redirects home at once; the pass is
+// issued in the background. `?s=` carries the laptop's session so the phone
+// joins it and both screens show the same card. Links here need
+// `reloadDocument`, since the route has no page of its own.
 export async function loader({ request, context }: Route.LoaderArgs) {
   const { env, ctx } = context.get(cloudflareContext)
 
-  // A GET that mints a real pass: keep link unfurlers and crawlers out.
+  // A GET that mints a real pass: keep crawlers and link unfurlers out.
   if (isbot(request.headers.get('user-agent'))) {
     throw redirect('/')
   }
@@ -40,9 +36,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     ? fromQr
     : ((await readSession(request)) ?? crypto.randomUUID())
 
-  // The card exists from here on; its pass is issued after the redirect has
-  // gone (waitUntil keeps the Worker alive for it). The page shows a skeleton
-  // until it lands, or Passmint's error with a retry button if it fails.
   const card = await startCard(env, sessionId)
 
   ctx.waitUntil(completeIssue(env, card.id))

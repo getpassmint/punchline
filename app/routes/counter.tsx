@@ -1,22 +1,17 @@
 import { Form, useNavigation } from 'react-router'
+import { Page } from '../components/page'
 import { PassStrip } from '../components/pass-strip'
-import { SiteHeader } from '../components/site-header'
 import { WalletStatus } from '../components/wallet-status'
 import { cloudflareContext } from '../context'
 import { useLiveData } from '../hooks/use-live-data'
 import { timeAgo } from '../lib/format'
-import {
-  type Card,
-  getCardByCode,
-  listSessionCards,
-  redeemCard,
-  stampCard,
-} from '../lib/loyalty.server'
+import { type Card, getCardByCode, listSessionCards, transitionCard } from '../lib/loyalty.server'
 import { applyIntent } from '../lib/optimistic'
 import { describePassmintError } from '../lib/passmint.server'
 import { STAMP_GOAL } from '../lib/rules'
 import { seo } from '../lib/seo'
 import { readSession } from '../lib/session.server'
+import { button } from '../lib/ui'
 import type { Route } from './+types/counter'
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -59,14 +54,12 @@ export async function action({ request, context }: Route.ActionArgs) {
   const cardId = String(form.get('cardId') ?? '')
   const intent = String(form.get('intent') ?? '')
 
+  if (intent !== 'stamp' && intent !== 'redeem') {
+    return null
+  }
+
   try {
-    // Both transitions push the update to the customer's phone via Passmint.
-    const card =
-      intent === 'stamp'
-        ? await stampCard(env, cardId, 'counter')
-        : intent === 'redeem'
-          ? await redeemCard(env, cardId, 'counter')
-          : undefined
+    const card = await transitionCard(env, cardId, intent, 'counter')
 
     if (card === null) {
       return { error: "That card doesn't exist anymore." }
@@ -96,9 +89,8 @@ export default function Counter({ loaderData, actionData }: Route.ComponentProps
   const busyIntent = pending ? navigation.formData?.get('intent') : undefined
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-5 sm:px-8">
-      <SiteHeader />
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 py-8 lg:py-12">
+    <Page>
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 py-8 lg:py-12">
         <div>
           <h1 className="type-wide text-4xl sm:text-5xl">The counter</h1>
           <p className="mt-3 max-w-lg text-lg text-ink-600">
@@ -117,13 +109,10 @@ export default function Counter({ loaderData, actionData }: Route.ComponentProps
               placeholder="e.g. puped6DMr03Wl4hajA3c"
               autoComplete="off"
               spellCheck={false}
-              className="rounded-xl border border-ink-900/15 bg-white px-4 py-2.5 tabular-nums outline-none focus:border-cobalt-500 focus:ring-2 focus:ring-cobalt-500/20"
+              className="h-12 rounded-xl border border-ink-900/15 bg-white px-4 tabular-nums outline-none focus:border-cobalt-500 focus:ring-2 focus:ring-cobalt-500/20"
             />
           </label>
-          <button
-            type="submit"
-            className="rounded-full border border-ink-900/15 bg-white px-5 py-2.5 font-semibold hover:border-ink-900/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500"
-          >
+          <button type="submit" className={button('secondary')}>
             Look up
           </button>
         </Form>
@@ -202,11 +191,7 @@ export default function Counter({ loaderData, actionData }: Route.ComponentProps
                       <button
                         type="submit"
                         disabled={busy}
-                        className={`h-12 min-w-24 rounded-full px-5 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60 ${
-                          earned
-                            ? 'bg-butter-400 text-ink-900 hover:bg-butter-600 focus-visible:outline-cobalt-500'
-                            : 'bg-cobalt-500 text-white hover:bg-cobalt-600 focus-visible:outline-butter-400'
-                        }`}
+                        className={`${button(earned ? 'reward' : 'primary')} min-w-24 justify-center`}
                       >
                         {busy ? 'Sending…' : earned ? 'Redeem' : 'Punch'}
                       </button>
@@ -225,7 +210,7 @@ export default function Counter({ loaderData, actionData }: Route.ComponentProps
         <p className="text-sm text-ink-400">
           Redeeming resets a card to zero, so every card can go round again.
         </p>
-      </main>
-    </div>
+      </div>
+    </Page>
   )
 }
