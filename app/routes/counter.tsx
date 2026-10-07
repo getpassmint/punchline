@@ -7,7 +7,7 @@ import { useLiveData } from '../hooks/use-live-data'
 import { timeAgo } from '../lib/format'
 import {
   type Card,
-  getCardByShortId,
+  getCardByCode,
   listSessionCards,
   redeemCard,
   stampCard,
@@ -30,7 +30,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const sessionId = await readSession(request)
   const code = new URL(request.url).searchParams.get('code')?.trim() ?? ''
   const cards: Card[] = sessionId ? await listSessionCards(env, sessionId) : []
-  const lookedUp = code ? await getCardByShortId(env, code) : null
+  const lookedUp = code ? await getCardByCode(env, code) : null
 
   if (lookedUp && !cards.some((c) => c.id === lookedUp.id)) {
     cards.unshift(lookedUp)
@@ -106,7 +106,7 @@ export default function Counter({ loaderData, actionData }: Route.ComponentProps
             <input
               name="code"
               defaultValue={code}
-              placeholder="e.g. tEDWE4TTIhdE"
+              placeholder="e.g. puped6DMr03Wl4hajA3c"
               autoComplete="off"
               spellCheck={false}
               className="rounded-xl border border-ink-900/15 bg-white px-4 py-2.5 tabular-nums outline-none focus:border-cobalt-500 focus:ring-2 focus:ring-cobalt-500/20"

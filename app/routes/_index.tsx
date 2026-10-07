@@ -3,7 +3,7 @@ import { data, Form, Link, useFetcher, useNavigation } from 'react-router'
 import { renderSVG } from 'uqr'
 import { ActivityFeed } from '../components/activity-feed'
 import { GitHubMark } from '../components/github-mark'
-import { PassPreview, PhoneFrame } from '../components/pass-preview'
+import { PassPreview, PhoneFrame, type WalletPlatform } from '../components/pass-preview'
 import { SiteHeader } from '../components/site-header'
 import { WalletButtons } from '../components/wallet-buttons'
 import { WalletStatus } from '../components/wallet-status'
@@ -58,6 +58,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       device,
       setupProblem: setupProblem(env),
       walletTracking: Boolean(env.PASSMINT_WEBHOOK_SECRET),
+      // Test-key passes carry a "[TEST]" watermark; the replica mirrors it.
+      testMode: env.PASSMINT_API_KEY?.startsWith('pmk_test_') ?? false,
       scanPath,
       // The QRs encode this deployment's own URLs, so dev and prod both work.
       // Before a card: /scan issues one. After: /join opens the same card on
@@ -133,8 +135,22 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Landing({ loaderData, actionData }: Route.ComponentProps) {
-  const { card, activity, device, qrSvg, joinQrSvg, scanPath, walletTracking, issueStuck } =
-    loaderData
+  const {
+    card,
+    activity,
+    device,
+    qrSvg,
+    joinQrSvg,
+    scanPath,
+    walletTracking,
+    issueStuck,
+    testMode,
+  } = loaderData
+  // Which wallet the replica imitates: a phone shows its own; a laptop can
+  // switch between the two.
+  const [platform, setPlatform] = useState<WalletPlatform>(
+    device === 'android' ? 'google' : 'apple',
+  )
   const issuing = card?.issueState === 'issuing' && !issueStuck
   const issueFailed = card?.issueState === 'failed' || issueStuck
   const ready = card?.issueState === 'ready'
@@ -249,12 +265,13 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
 
   const pass = (
     <PassPreview
+      platform={platform}
       count={count}
       state={shown?.state ?? 'active'}
-      serial={card?.shortId ?? '000000000000'}
       newest={newPunch}
       placeholder={!card}
       issuing={issuing}
+      testMode={testMode}
     />
   )
 
@@ -266,16 +283,34 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
           {onPhone ? (
             card && <div className="mx-auto max-w-sm">{pass}</div>
           ) : (
-            <PhoneFrame>
-              {pass}
-              <p className="mt-5 text-center text-sm text-ink-400">
-                {issuing
-                  ? 'Passmint is issuing your pass…'
-                  : card
-                    ? 'The pass in your wallet, as it looks right now'
-                    : 'Your card will appear here'}
-              </p>
-            </PhoneFrame>
+            <div className="flex flex-col items-center gap-4">
+              <fieldset className="flex rounded-full bg-white p-1 shadow-[0_1px_2px_rgb(14_26_77/0.06)]">
+                <legend className="sr-only">Show the pass as</legend>
+                {(['apple', 'google'] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    aria-pressed={platform === p}
+                    onClick={() => setPlatform(p)}
+                    className={`h-9 rounded-full px-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt-500 ${
+                      platform === p ? 'bg-ink-900 text-white' : 'text-ink-600 hover:text-ink-900'
+                    }`}
+                  >
+                    {p === 'apple' ? 'Apple Wallet' : 'Google Wallet'}
+                  </button>
+                ))}
+              </fieldset>
+              <PhoneFrame platform={platform}>
+                {pass}
+                <p className="mt-5 text-center text-sm text-ink-400">
+                  {issuing
+                    ? 'Passmint is issuing your pass…'
+                    : card
+                      ? 'The pass in your wallet, as it looks right now'
+                      : 'Your card will appear here'}
+                </p>
+              </PhoneFrame>
+            </div>
           )}
         </div>
 

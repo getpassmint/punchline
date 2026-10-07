@@ -343,10 +343,12 @@ export async function listSessionCards(env: Env, sessionId: string): Promise<Car
 }
 
 // What a till does when it scans a pass: find the card by the code printed
-// under its barcode.
-export async function getCardByShortId(env: Env, shortId: string): Promise<Card | null> {
-  const row = await env.DB.prepare('SELECT * FROM cards WHERE short_id = ?1')
-    .bind(shortId)
+// under its barcode (the pass's serial number), or by its short card id.
+export async function getCardByCode(env: Env, code: string): Promise<Card | null> {
+  const row = await env.DB.prepare(
+    'SELECT * FROM cards WHERE serial_number = ?1 OR short_id = ?1 LIMIT 1',
+  )
+    .bind(code)
     .first<CardRow>()
 
   return row ? toCard(row) : null

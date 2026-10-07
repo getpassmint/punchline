@@ -38,6 +38,10 @@ export function WalletButtons({
       {device !== 'ios' && (
         <a
           href={googleHref}
+          // Google's save page has no way back to the site, so keep
+          // Punchline open in this tab.
+          target="_blank"
+          rel="noopener noreferrer"
           onClick={() => {
             pauseLiveData(15_000)
             onAdd?.()
