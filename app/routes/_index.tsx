@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { data, Form, Link, useFetcher, useNavigation } from 'react-router'
+import { data, Form, useFetcher, useNavigation } from 'react-router'
 import { renderSVG } from 'uqr'
 import { ActivityFeed } from '../components/activity-feed'
 import { BuiltWithPassmint } from '../components/built-with-passmint'
@@ -44,7 +44,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   // Minted on the first visit, so the QR can carry it to the phone.
   const { sessionId, headers } = await ensureSession(request)
   const card = await getSessionCard(env, sessionId)
-  const scanPath = `/scan?s=${sessionId}`
   const device = detectDevice(request.headers.get('user-agent'))
   const qr = (path: string) =>
     renderSVG(new URL(path, request.url).toString(), {
@@ -61,9 +60,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       walletTracking: Boolean(env.PASSMINT_WEBHOOK_SECRET),
       origin: env.PUBLIC_URL || new URL(request.url).origin,
       testMode: env.PASSMINT_API_KEY?.startsWith('pmk_test_') ?? false,
-      scanPath,
-      // /scan issues a card on the phone; /join opens an existing one there.
-      qrSvg: card ? null : qr(scanPath),
+      // Both QRs carry the session to the phone. /scan leads to the button that
+      // issues a card; /join opens the existing one.
+      qrSvg: card ? null : qr(`/scan?s=${sessionId}`),
       joinQrSvg:
         card?.issueState === 'ready' && device === 'desktop' ? qr(`/join?s=${sessionId}`) : null,
       // Issuing takes a few seconds; past 45s it has died, so offer a retry.
@@ -125,17 +124,8 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Landing({ loaderData, actionData }: Route.ComponentProps) {
-  const {
-    card,
-    activity,
-    device,
-    qrSvg,
-    joinQrSvg,
-    scanPath,
-    walletTracking,
-    issueStuck,
-    testMode,
-  } = loaderData
+  const { card, activity, device, qrSvg, joinQrSvg, walletTracking, issueStuck, testMode } =
+    loaderData
   // A phone shows its own wallet's replica; a laptop can switch.
   const [platform, setPlatform] = useState<WalletPlatform>(
     device === 'android' ? 'google' : 'apple',
@@ -296,22 +286,25 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
                 card?.shortId && (
                   <>
                     Card {card.shortId} ·{' '}
-                    <Link
-                      to="/scan"
-                      reloadDocument
-                      className="underline decoration-ink-400/40 underline-offset-4 hover:text-ink-900"
-                    >
-                      Start a new card
-                    </Link>
+                    <Form method="post" action="/scan" reloadDocument className="inline">
+                      <button
+                        type="submit"
+                        className="cursor-pointer underline decoration-ink-400/40 underline-offset-4 hover:text-ink-900"
+                      >
+                        Start a new card
+                      </button>
+                    </Form>
                   </>
                 )
               }
             >
               {card === null ? (
                 onPhone ? (
-                  <Link to={scanPath} reloadDocument className={button()}>
-                    Get your punch card
-                  </Link>
+                  <Form method="post" action="/scan" reloadDocument>
+                    <button type="submit" className={`cursor-pointer ${button()}`}>
+                      Get your punch card
+                    </button>
+                  </Form>
                 ) : (
                   <div className="flex items-center gap-5">
                     <div
@@ -326,15 +319,16 @@ export default function Landing({ loaderData, actionData }: Route.ComponentProps
                           aria-hidden
                           className="size-2 rounded-full bg-cobalt-500 motion-safe:animate-pulse"
                         />
-                        This page picks up your card once you've scanned
+                        Then tap the button there. This page picks up the card.
                       </p>
-                      <Link
-                        to={scanPath}
-                        reloadDocument
-                        className="w-fit text-sm text-ink-600 underline decoration-ink-400/50 underline-offset-4 hover:text-ink-900"
-                      >
-                        No phone handy? Get the card in this browser
-                      </Link>
+                      <Form method="post" action="/scan" reloadDocument>
+                        <button
+                          type="submit"
+                          className="w-fit cursor-pointer text-sm text-ink-600 underline decoration-ink-400/50 underline-offset-4 hover:text-ink-900"
+                        >
+                          No phone handy? Get the card in this browser
+                        </button>
+                      </Form>
                     </div>
                   </div>
                 )
